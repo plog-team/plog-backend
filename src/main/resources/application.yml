@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: plog-api
+  profiles:
+    active: local
+  jackson:
+    time-zone: Asia/Seoul
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 100MB
+  datasource:
+    url: jdbc:mysql://localhost:3306/plog?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Seoul&allowPublicKeyRetrieval=true&useSSL=false
+    username: root
+    password: plog
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      # MySQL 컨테이너 시작 전에도 앱이 종료되지 않도록 설정
+      initialization-fail-timeout: -1
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
+
+server:
+  port: 8080
+  error:
+    include-message: always
+
+# 로컬 업로드 디렉터리 (절대/상대 모두 허용)
+plog:
+  upload:
+    base-dir: ./uploads
+  gemini:
+    # application-local.yml에서 override
+    api-key: ${GEMINI_API_KEY:}
+    model: gemini-1.5-flash
+    endpoint: https://generativelanguage.googleapis.com/v1beta
+    use-mock: true   # 기본 Mock 모드. application-local.yml에서 false로 변경하면 실제 Gemini 호출
+
+logging:
+  level:
+    com.plog.api: DEBUG
+    org.hibernate.SQL: INFO
