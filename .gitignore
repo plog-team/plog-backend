@@ -1,0 +1,36 @@
+# Build
+.gradle/
+build/
+out/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+bin/
+
+# Spring local config (contains API keys & DB credentials)
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/main/resources/application-local.properties
+
+# Local uploads (photo files)
+uploads/
+
+# Test fixtures
+test-image.jpg
+*.test.jpg
+
+# Demo photos (실 사용자 사진, 잠재 PII)
+demo-photos/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
