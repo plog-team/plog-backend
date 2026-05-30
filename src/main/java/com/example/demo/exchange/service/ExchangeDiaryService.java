@@ -6,6 +6,7 @@ import com.example.demo.exchange.dto.ExchangeDiaryRequestDto;
 import com.example.demo.exchange.dto.ExchangeDiaryResponseDto;
 import com.example.demo.exchange.repository.ExchangeDiaryRepository;
 import com.example.demo.exchange.repository.ExchangeSessionRepository;
+import com.example.demo.exchange.repository.SessionParticipantRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +21,8 @@ public class ExchangeDiaryService {
 
     private final ExchangeDiaryRepository diaryRepository;
     private final ExchangeSessionRepository sessionRepository;
+    private final SessionParticipantRepository sessionParticipantRepository;
+    private final NotificationService notificationService;
 
     // 일기 작성
     @Transactional
@@ -35,7 +38,17 @@ public class ExchangeDiaryService {
                 LocalDateTime.now()
         );
 
-        return new ExchangeDiaryResponseDto(diaryRepository.save(diary));
+        ExchangeDiary saved = diaryRepository.save(diary);
+
+        // 상대방에게 일기 작성 알림 전송
+        sessionParticipantRepository.findByExchangeSessionId(session.getId())
+                .stream()
+                .filter(p -> !p.getUserId().equals(request.getUserId()))
+                .findFirst()
+                .ifPresent(p -> notificationService.createNotification(
+                        p.getUserId(), "DIARY_WRITTEN", saved.getId(), "DIARY"));
+
+        return new ExchangeDiaryResponseDto(saved);
     }
 
     // 세션의 일기 목록 조회

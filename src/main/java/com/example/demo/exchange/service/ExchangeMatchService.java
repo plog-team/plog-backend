@@ -25,6 +25,7 @@ public class ExchangeMatchService {
     private final MatchParticipantRepository participantRepository;
     private final ExchangeRoomRepository roomRepository;
     private final AppUserRepository appUserRepository;
+    private final NotificationService notificationService;
 
     // 매칭 신청
     @Transactional
@@ -34,6 +35,9 @@ public class ExchangeMatchService {
 
         MatchParticipant participant = new MatchParticipant(match, userId);
         participantRepository.save(participant);
+
+        // 매칭 신청 알림 (상대방 userId=2L 하드코딩 - 추후 실제값으로 교체)
+        notificationService.createNotification(2L, "MATCH_REQUEST", match.getId(), "MATCH");
 
         return new ExchangeMatchResponseDto(match);
     }
@@ -48,6 +52,11 @@ public class ExchangeMatchService {
 
         ExchangeRoom room = new ExchangeRoom(match, "ACTIVE", LocalDateTime.now());
         roomRepository.save(room);
+
+        // 매칭 수락 알림 (신청자 userId 가져오기)
+        participantRepository.findByExchangeMatchId(matchId)
+                .ifPresent(p -> notificationService.createNotification(
+                        p.getUserId(), "MATCH_ACCEPTED", room.getId(), "ROOM"));
 
         return new ExchangeRoomResponseDto(room);
     }
