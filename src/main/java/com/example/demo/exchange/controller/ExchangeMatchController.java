@@ -7,6 +7,7 @@ import com.example.demo.exchange.service.ExchangeMatchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/exchange/matches")
@@ -31,5 +32,18 @@ public class ExchangeMatchController {
     @GetMapping("/{matchId}")
     public ResponseEntity<ExchangeMatchResponseDto> getMatch(@PathVariable Long matchId) {
         return ResponseEntity.ok(matchService.getMatch(matchId));
+    }
+
+    // 대기 중인 매칭 목록 조회
+    @GetMapping("/pending")
+    public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches() {
+        return ResponseEntity.ok(matchService.getPendingMatches());
+    }
+
+    // 매칭 거절
+    @PostMapping("/{matchId}/reject")
+    public ResponseEntity<Void> rejectMatch(@PathVariable Long matchId) {
+        matchService.rejectMatch(matchId);
+        return ResponseEntity.ok().build();
     }
 }
