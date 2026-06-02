@@ -29,13 +29,20 @@ public class User extends BaseTimeEntity {
     @Column(length = 100)
     private String email;
 
+    @Column(nullable = false)
+    private String password;
+
+    @Column(nullable = false)
+    private boolean emailVerified = false;
+
     @Builder
-    private User(String name, String email) {
+    private User(String name, String email, String password) {
         this.name = name;
         this.email = email;
+        this.password = password;
     }
 
-    public static User of(String name, String email) {
-        return User.builder().name(name).email(email).build();
+    public static User of(String name, String email, String password) {
+        return User.builder().name(name).email(email).password(password).build();
     }
 }

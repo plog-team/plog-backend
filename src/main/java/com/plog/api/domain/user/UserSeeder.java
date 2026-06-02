@@ -18,7 +18,7 @@ public class UserSeeder {
     public ApplicationRunner seedDefaultUser() {
         return args -> {
             if (userRepository.count() == 0) {
-                User u = userRepository.save(User.of("플로그 테스터", "tester@plog.local"));
+                User u = userRepository.save(User.of("플로그 테스터", "tester@plog.local", "123456"));
                 log.info("Seeded default user id={}", u.getId());
             }
         };
