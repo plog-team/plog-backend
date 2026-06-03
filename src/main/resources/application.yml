@@ -44,6 +44,10 @@ plog:
     model: gemini-1.5-flash
     endpoint: https://generativelanguage.googleapis.com/v1beta
     use-mock: true   # 기본 Mock 모드. application-local.yml에서 false로 변경하면 실제 Gemini 호출
+  openai:
+    api-key: ${OPENAI_API_KEY:}
+    model: gpt-4o-mini
+    endpoint: https://api.openai.com/v1
 
 logging:
   level:
