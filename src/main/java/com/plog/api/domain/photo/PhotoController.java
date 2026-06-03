@@ -3,6 +3,8 @@ package com.plog.api.domain.photo;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -11,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.plog.api.common.UserContext;
 import com.plog.api.common.exception.BadRequestException;
+import com.plog.api.domain.photo.dto.PhotoContextResponse;
 import com.plog.api.domain.photo.dto.PhotoUploadBatchResponse;
 import com.plog.api.domain.photo.dto.PhotoUploadResponse;
 
@@ -49,5 +52,10 @@ public class PhotoController {
             throw new BadRequestException("files 또는 file 파라미터에 1장 이상 업로드 필요");
         }
         return new PhotoUploadBatchResponse(results);
+    }
+    /** photoId 기준 자동입력용 촬영 날짜·장소·날씨 조회. */
+    @GetMapping("/{photoId}/context")
+    public PhotoContextResponse context(@PathVariable long photoId) {
+        return photoService.getContext(UserContext.get(), photoId);
     }
 }

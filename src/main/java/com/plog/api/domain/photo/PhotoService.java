@@ -13,8 +13,14 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.domain.cache.ImageAnalysisCache;
+import com.plog.api.common.exception.NotFoundException;
 import com.plog.api.domain.cache.ImageAnalysisCacheRepository;
+import com.plog.api.domain.photo.dto.PhotoContextResponse;
 import com.plog.api.domain.photo.dto.PhotoUploadResponse;
+import com.plog.api.pipeline.ContextEnrichNode;
+import com.plog.api.pipeline.ExifExtractNode;
+import com.plog.api.pipeline.dto.ContextResult;
+import com.plog.api.pipeline.dto.ExifResult;
 import com.plog.api.util.ImageResizer;
 import com.plog.api.util.Sha256Hasher;
 
@@ -27,7 +33,10 @@ import lombok.extern.slf4j.Slf4j;
 public class PhotoService {
 
     private final PhotoRepository photoRepository;
+    private final PhotoContextRepository photoContextRepository;
     private final ImageAnalysisCacheRepository cacheRepository;
+    private final ExifExtractNode exifExtractNode;
+    private final ContextEnrichNode contextEnrichNode;
 
     @Value("${plog.upload.base-dir:./uploads}")
     private String baseDir;
@@ -51,6 +60,9 @@ public class PhotoService {
 
         String sha = Sha256Hasher.hex(rawBytes);
         boolean cacheHit = cacheRepository.findBySha256(sha).isPresent();
+
+        ExifResult exif = exifExtractNode.extract(rawBytes);
+        ContextResult context = contextEnrichNode.enrich(exif);
 
         String format = extractFormat(mime, file.getOriginalFilename());
         ImageResizer.Result resized;
@@ -86,7 +98,19 @@ public class PhotoService {
                 .height(resized.height())
                 .sizeBytes((long) resized.bytes().length)
                 .storedPath(target.toString().replace('\\', '/'))
+                .capturedAt(exif.capturedAt())
                 .build());
+
+        PhotoContext photoContext = photoContextRepository.save(PhotoContext.builder()
+                        .photoId(photo.getId())
+                        .capturedAt(exif.capturedAt())
+                        .latitude(exif.latitude())
+                        .longitude(exif.longitude())
+                        .locationHint(context.locationHint())
+                        .weather(context.weather())
+                        .temperature(context.temperature())
+                        .build());
+
 
         log.info("Uploaded photo id={} userId={} sha={} {}x{} cacheHit={}",
                 photo.getId(), userId, sha, resized.width(), resized.height(), cacheHit);
@@ -101,9 +125,24 @@ public class PhotoService {
                 .sizeBytes(photo.getSizeBytes())
                 .storedPath(photo.getStoredPath())
                 .cacheHit(cacheHit)
+                .context(PhotoContextResponse.from(photoContext))
                 .build();
     }
-
+    @Transactional(readOnly = true)
+    public PhotoContextResponse getContext(long userId, long photoId) {
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new NotFoundException("Photo not found id=" + photoId));
+        if (!photo.getUserId().equals(userId)) {
+            throw new BadRequestException("photoId=" + photoId + "은 본인 소유가 아닙니다");
+        }
+        return photoContextRepository.findByPhotoId(photoId)
+                .map(PhotoContextResponse::from)
+                .orElseGet(() -> PhotoContextResponse.builder()
+                        .photoId(photo.getId())
+                        .capturedAt(photo.getCapturedAt())
+                        .date(photo.getCapturedAt() == null ? null : photo.getCapturedAt().toLocalDate())
+                        .build());
+    }
     private String extractFormat(String mime, String filename) {
         if (mime != null) {
             if (mime.contains("png")) return "png";

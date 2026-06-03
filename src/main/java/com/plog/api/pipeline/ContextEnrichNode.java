@@ -6,30 +6,52 @@ import java.time.LocalDateTime;
 import java.time.format.TextStyle;
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriBuilder;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.plog.api.pipeline.dto.ContextResult;
 import com.plog.api.pipeline.dto.ExifResult;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * EXIF의 촬영 시간·GPS를 기반으로 일기 작성용 부가 컨텍스트 추정.
- * 날씨는 현재 Mock (weather="미상") — OpenWeather 연동 시 교체.
+ * GPS가 있으면 Kakao Local API로 주소를, Open-Meteo API로 현재 날씨를 조회한다.
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class ContextEnrichNode {
+
+    private final WebClient webClient;
+
+    @Value("${plog.kakao.rest-api-key:}")
+    private String kakaoRestApiKey;
+
+    @Value("${plog.kakao.coord-to-address-url:https://dapi.kakao.com/v2/local/geo/coord2address.json}")
+    private String kakaoCoordToAddressUrl;
+
+    @Value("${plog.open-meteo.forecast-url:https://api.open-meteo.com/v1/forecast}")
+    private String openMeteoForecastUrl;
 
     public ContextResult enrich(ExifResult exif) {
         if (exif == null) return ContextResult.empty();
+
+        String fallbackLocation = locationMock(exif.latitude(), exif.longitude());
+        String location = lookupKakaoAddress(exif.latitude(), exif.longitude(), fallbackLocation);
+        WeatherInfo weather = lookupOpenMeteoWeather(exif.latitude(), exif.longitude());
+
         return ContextResult.builder()
                 .season(seasonFrom(exif.capturedAt()))
                 .dayOfWeek(dayOfWeekFrom(exif.capturedAt()))
                 .holidayHint(holidayHintFrom(exif.capturedAt()))
-                .weather(weatherMock(exif.latitude(), exif.longitude()))
-                .temperature(null) // OpenWeather 연동 시 채움
-                .locationHint(locationMock(exif.latitude(), exif.longitude()))
+                .weather(weather.weather())
+                .temperature(weather.temperature())
+                .locationHint(location)
                 .build();
     }
 
@@ -53,16 +75,99 @@ public class ContextEnrichNode {
         return (dw == DayOfWeek.SATURDAY || dw == DayOfWeek.SUNDAY) ? "주말" : "평일";
     }
 
-    private String weatherMock(Double lat, Double lon) {
-        // TODO: OpenWeather API 연동
-        //   GET api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid=...&lang=kr
-        if (lat == null || lon == null) return "미상";
-        return "미상"; // Mock fallback
+    private String lookupKakaoAddress(Double lat, Double lon, String fallback) {
+        if (lat == null || lon == null) return fallback;
+        if (kakaoRestApiKey == null || kakaoRestApiKey.isBlank()) {
+            log.debug("Kakao REST API key 미설정 → 위치 fallback 사용");
+            return fallback;
+        }
+
+        try {
+            JsonNode root = webClient.get()
+                    .uri(kakaoCoordToAddressUrl, uriBuilder -> uriBuilder
+                            .queryParam("x", lon)
+                            .queryParam("y", lat)
+                            .queryParam("input_coord", "WGS84")
+                            .build())
+                    .header("Authorization", "KakaoAK " + kakaoRestApiKey)
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            JsonNode docs = root == null ? null : root.path("documents");
+            if (docs == null || !docs.isArray() || docs.isEmpty()) return fallback;
+
+            JsonNode first = docs.get(0);
+            JsonNode address = first.path("address");
+            if (address.isMissingNode() || address.isNull()) {
+                address = first.path("road_address");
+            }
+            if (address.isMissingNode() || address.isNull()) return fallback;
+
+            String region1 = address.path("region_1depth_name").asText("");
+            String region2 = address.path("region_2depth_name").asText("");
+            String region3 = address.path("region_3depth_name").asText("");
+            String combined = String.join(" ", region1, region2, region3).trim().replaceAll("\\s+", " ");
+            return combined.isBlank() ? fallback : combined;
+        } catch (Exception e) {
+            log.warn("Kakao 주소 조회 실패 lat={} lon={} err={}", lat, lon, e.getMessage());
+            return fallback;
+        }
     }
 
+    private WeatherInfo lookupOpenMeteoWeather(Double lat, Double lon) {
+        if (lat == null || lon == null) return WeatherInfo.unknown();
+
+        try {
+            JsonNode root = webClient.get()
+                    .uri(openMeteoForecastUrl, uriBuilder -> openMeteoUri(uriBuilder, lat, lon))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            JsonNode current = root == null ? null : root.path("current");
+            if (current == null || current.isMissingNode() || current.isNull()) return WeatherInfo.unknown();
+
+            Double temperature = current.path("temperature_2m").isNumber()
+                    ? current.path("temperature_2m").asDouble()
+                    : null;
+            Integer weatherCode = current.path("weather_code").isNumber()
+                    ? current.path("weather_code").asInt()
+                    : null;
+            return new WeatherInfo(toKoreanWeather(weatherCode, temperature), temperature);
+        } catch (Exception e) {
+            log.warn("Open-Meteo 날씨 조회 실패 lat={} lon={} err={}", lat, lon, e.getMessage());
+            return WeatherInfo.unknown();
+        }
+    }
+
+    private java.net.URI openMeteoUri(UriBuilder uriBuilder, Double lat, Double lon) {
+        return uriBuilder
+                .queryParam("latitude", lat)
+                .queryParam("longitude", lon)
+                .queryParam("current", "temperature_2m,weather_code")
+                .queryParam("timezone", "Asia/Seoul")
+                .build();
+    }
+
+    private String toKoreanWeather(Integer code, Double temperature) {
+        String name = switch (code == null ? -1 : code) {
+            case 0 -> "☀️ 맑음";
+            case 1, 2 -> "🌤️ 대체로 맑음";
+            case 3 -> "☁️ 흐림";
+            case 45, 48 -> "🌫️ 안개";
+            case 51, 53, 55, 56, 57 -> "🌦️ 이슬비";
+            case 61, 63, 65, 66, 67, 80, 81, 82 -> "🌧️ 비";
+            case 71, 73, 75, 77, 85, 86 -> "❄️ 눈";
+            case 95, 96, 99 -> "⛈️ 천둥번개";
+            default -> "날씨 정보";
+        };
+        if (temperature == null) return name;
+        return name + " " + String.format(Locale.KOREAN, "%.0f℃", temperature);
+    }
     /**
      * GPS 좌표를 한국 광역/지역 지명으로 변환.
-     * Gemini 캡션에 구체 지명을 공급해 모호한 표현을 방지하기 위함.
+     * Kakao API 실패/미설정 시 fallback으로 사용한다.
      */
     private String locationMock(Double lat, Double lon) {
         if (lat == null || lon == null) return null;
@@ -90,5 +195,10 @@ public class ContextEnrichNode {
             return String.format("한국 (위도 %.2f, 경도 %.2f)", lat, lon);
         }
         return String.format("위도 %.4f, 경도 %.4f", lat, lon);
+    }
+    private record WeatherInfo(String weather, Double temperature) {
+        private static WeatherInfo unknown() {
+            return new WeatherInfo("미상", null);
+        }
     }
 }
