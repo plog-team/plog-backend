@@ -15,6 +15,7 @@ import com.plog.api.domain.diary.dto.DiaryResponse;
 import com.plog.api.domain.diary.dto.DiaryUpsertRequest;
 import com.plog.api.domain.photo.Photo;
 import com.plog.api.domain.photo.PhotoRepository;
+import com.plog.api.domain.diary.dto.DiarySearchResponse;
 
 import lombok.RequiredArgsConstructor;
 
@@ -95,6 +96,51 @@ public class DiaryService {
         Pageable pageable = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
         return diaryRepository.findAllByUserIdOrderByDiaryDateDesc(userId, pageable).stream()
                 .map(DiaryResponse::from)
+                .toList();
+    }
+
+    /** 제목/본문/장소 기준 일기 검색 */
+    @Transactional(readOnly = true)
+    public List<DiarySearchResponse> search(long userId, String keyword, String sort) {
+        String normalizedKeyword = normalizeOptional(keyword);
+
+        List<Diary> diaries;
+
+        if ("oldest".equalsIgnoreCase(sort)) {
+            diaries = diaryRepository.searchDiariesOldest(userId, normalizedKeyword);
+        } else {
+            diaries = diaryRepository.searchDiariesLatest(userId, normalizedKeyword);
+        }
+
+        return diaries.stream()
+                .map(diary -> DiarySearchResponse.from(diary, representativeImageUrl(userId, diary)))
+                .toList();
+    }
+
+    /** 대표사진 index 기준으로 이미지 조회 URL 생성 */
+    private String representativeImageUrl(long userId, Diary diary) {
+        List<Long> photoIds = parsePhotoIds(diary.getPhotoIdsCsv());
+
+        if (photoIds.isEmpty()) {
+            return null;
+        }
+
+        int safeIndex = Math.max(0, Math.min(diary.getRepresentativePhotoIndex(), photoIds.size() - 1));
+        Long representativePhotoId = photoIds.get(safeIndex);
+
+        return "/api/photos/" + representativePhotoId;
+    }
+
+    /** photoIdsCsv를 Long 리스트로 변환 */
+    private List<Long> parsePhotoIds(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return List.of();
+        }
+
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .map(Long::parseLong)
                 .toList();
     }
 
