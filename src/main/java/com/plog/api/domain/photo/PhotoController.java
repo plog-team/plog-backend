@@ -88,12 +88,12 @@ public class PhotoController {
                 .weather(location.getWeather())
                 .temperature(location.getTemperature())
                 .build();
-
+    }
     @DeleteMapping("/{photoId}")
     public ResponseEntity<Void> deletePhoto(
             @PathVariable Long photoId,
-            @RequestHeader("X-User-Id") Long userId) {
-        photoService.deletePhoto(photoId, userId);
-        return ResponseEntity.noContent().build();
+            @RequestHeader("X-User-Id") Long userId){
+            photoService.deletePhoto(photoId, userId);
+            return ResponseEntity.noContent().build();
     }
 }
