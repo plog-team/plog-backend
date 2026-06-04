@@ -48,8 +48,8 @@ plog:
     rest-api-key: ${KAKAO_REST_API_KEY:cad55149d40de2258b65d10a8a3c3f58}
     coord-to-address-url: https://dapi.kakao.com/v2/local/geo/coord2address.json
 
-    open-meteo:
-      forecast-url: https://api.open-meteo.com/v1/forecast
+  open-meteo:
+    forecast-url: https://api.open-meteo.com/v1/forecast
 
 logging:
   level:
