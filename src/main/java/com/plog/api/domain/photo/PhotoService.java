@@ -7,9 +7,11 @@ import java.nio.file.Paths;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.domain.cache.ImageAnalysisCache;
@@ -72,7 +74,6 @@ public class PhotoService {
         String storedFilename = sha + "." + resized.format();
         Path userDir = Paths.get(baseDir, String.valueOf(userId));
         Path target = userDir.resolve(storedFilename);
-        // Thumbnailator 리사이즈가 EXIF를 제거하므로 원본 bytes를 별도 저장
         Path originalTarget = userDir.resolve(sha + ".original");
         try {
             Files.createDirectories(userDir);
@@ -136,6 +137,22 @@ public class PhotoService {
                 .temperature(context.temperature())
                 .build();
     }
+
+
+    @Transactional
+    public void deletePhoto(Long photoId, Long userId) {
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다."));
+
+        if (!photo.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
+        }
+
+        photo.setDeleted(true);
+        photoRepository.save(photo);
+    }
+
+
     private String extractFormat(String mime, String filename) {
         if (mime != null) {
             if (mime.contains("png")) return "png";

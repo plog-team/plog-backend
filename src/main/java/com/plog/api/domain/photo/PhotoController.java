@@ -9,9 +9,11 @@ import java.util.List;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,10 +38,6 @@ public class PhotoController {
     private final PhotoRepository photoRepository;
     private final PhotoLocationRepository photoLocationRepository;
 
-    /**
-     * multipart files[] 1~10장 배치 업로드.
-     * 단일 file 파라미터도 허용 (하위 호환).
-     */
     @PostMapping
     public PhotoUploadBatchResponse upload(
             @RequestParam(value = "files", required = false) MultipartFile[] files,
@@ -90,5 +88,12 @@ public class PhotoController {
                 .weather(location.getWeather())
                 .temperature(location.getTemperature())
                 .build();
+
+    @DeleteMapping("/{photoId}")
+    public ResponseEntity<Void> deletePhoto(
+            @PathVariable Long photoId,
+            @RequestHeader("X-User-Id") Long userId) {
+        photoService.deletePhoto(photoId, userId);
+        return ResponseEntity.noContent().build();
     }
 }
