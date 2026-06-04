@@ -26,7 +26,7 @@ import com.plog.api.domain.photo.dto.PhotoUploadBatchResponse;
 import com.plog.api.domain.photo.dto.PhotoUploadResponse;
 
 import lombok.RequiredArgsConstructor;
-
+import com.plog.api.domain.photo.dto.PhotoAutoInputContext;
 @RestController
 @RequestMapping("/api/photos")
 @RequiredArgsConstructor
@@ -36,6 +36,7 @@ public class PhotoController {
 
     private final PhotoService photoService;
     private final PhotoRepository photoRepository;
+    private final PhotoLocationRepository photoLocationRepository;
 
     @PostMapping
     public PhotoUploadBatchResponse upload(
@@ -72,12 +73,27 @@ public class PhotoController {
                 photo.getMimeType() != null ? photo.getMimeType() : "image/jpeg");
         return ResponseEntity.ok().contentType(mediaType).body(bytes);
     }
+    @GetMapping("/{photoId}/auto-input")
+    public PhotoAutoInputContext getAutoInput(@PathVariable Long photoId) {
+        PhotoLocation location = photoLocationRepository.findByPhotoId(photoId)
+                .orElseThrow(() -> new NotFoundException("사진 자동입력 정보를 찾을 수 없습니다: " + photoId));
 
+        return PhotoAutoInputContext.builder()
+                .photoId(photoId)
+                .capturedAt(location.getTakenAt())
+                .date(location.getTakenAt() == null ? null : location.getTakenAt().toLocalDate())
+                .latitude(location.getLatitude())
+                .longitude(location.getLongitude())
+                .locationHint(location.getLocationName())
+                .weather(location.getWeather())
+                .temperature(location.getTemperature())
+                .build();
+    }
     @DeleteMapping("/{photoId}")
     public ResponseEntity<Void> deletePhoto(
             @PathVariable Long photoId,
-            @RequestHeader("X-User-Id") Long userId) {
-        photoService.deletePhoto(photoId, userId);
-        return ResponseEntity.noContent().build();
+            @RequestHeader("X-User-Id") Long userId){
+            photoService.deletePhoto(photoId, userId);
+            return ResponseEntity.noContent().build();
     }
 }

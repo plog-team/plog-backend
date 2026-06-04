@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.plog.api.common.UserContext;
 import com.plog.api.domain.diary.dto.DiaryResponse;
 import com.plog.api.domain.diary.dto.DiaryUpsertRequest;
+import com.plog.api.domain.diary.dto.DiarySearchResponse;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,14 @@ public class DiaryController {
         return diaryService.list(UserContext.get(), limit);
     }
 
+    /** 제목/내용/장소 기준 일기 검색 */
+    @GetMapping("/search")
+    public List<DiarySearchResponse> search(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "latest") String sort
+    ) {
+        return diaryService.search(UserContext.get(), keyword, sort);
+    }
     @GetMapping("/by-date/{date}")
     public DiaryResponse getByDate(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

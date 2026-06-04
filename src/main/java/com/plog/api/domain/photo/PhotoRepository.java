@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface PhotoRepository extends JpaRepository<Photo, Long> {
     List<Photo> findAllByUserIdOrderByIdDesc(Long userId);
+    List<Photo> findAllByIdInAndUserId(List<Long> ids, Long userId);
 }

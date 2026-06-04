@@ -38,6 +38,15 @@ server:
 plog:
   upload:
     base-dir: ./uploads
+
+  autofill:
+    kakao:
+      api-key: ${KAKAO_API_KEY:}
+      coord-to-address-url: https://dapi.kakao.com/v2/local/geo/coord2address.json
+    open-meteo:
+      forecast-url: https://api.open-meteo.com/v1/forecast
+      archive-url: https://archive-api.open-meteo.com/v1/archive
+
   gemini:
     # application-local.yml에서 override
     api-key: ${GEMINI_API_KEY:}

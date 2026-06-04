@@ -202,6 +202,8 @@ Postman Body:
 
 - `form-data`
 - key: `files`
+- batch upload key: `files` (select 1 to 10 image files)
+- backward-compatible single upload key: `file`
 - type: `File`
 - select 1 to 10 image files
 
@@ -211,7 +213,31 @@ X-User-Id: 1
 ```
 
 The response contains `photoId`; use those IDs in diary and AI guide requests.
+The response always uses the batch shape, including for a single `file`. The Android app can read each photo's diary auto-input metadata from `data.photos[index].context` and apply the selected representative photo's context to the UI. The server reads the original photo EXIF, converts GPS coordinates to an address with Kakao Local API, and looks up weather at the capture time with Open-Meteo. Fields unavailable because of missing EXIF, an unset `KAKAO_REST_API_KEY`, or an external API failure are omitted. Open-Meteo does not require an API key.
 
+```json
+{
+  "success": true,
+  "data": {
+    "photos": [
+      {
+        "photoId": 123,
+        "context": {
+          "photoId": 123,
+          "capturedAt": "2026-06-04T14:30:00",
+          "date": "2026-06-04",
+          "latitude": 37.5665,
+          "longitude": 126.978,
+          "locationHint": "서울",
+          "weather": "미상"
+        }
+      }
+    ]
+  }
+}
+```
+
+Use the returned `photoId` values in diary and AI guide requests.
 ## 4. AI Guide API
 
 For these endpoints, upload real images through `/api/photos` first. Dummy SQL photo rows are enough for diary testing, but AI guide reads actual files from `stored_path`.
