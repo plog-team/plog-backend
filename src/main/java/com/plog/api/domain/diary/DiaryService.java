@@ -86,8 +86,12 @@ public class DiaryService {
 
     @Transactional(readOnly = true)
     public DiaryResponse getById(long userId, long diaryId) {
-        return DiaryResponse.from(diaryRepository.findByIdAndUserId(diaryId, userId)
-                .orElseThrow(() -> new NotFoundException("Diary not found id=" + diaryId)));
+        Diary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new NotFoundException("Diary not found id=" + diaryId));
+        if (diary.isSecret() && !diary.getUserId().equals(userId)) {
+            throw new BadRequestException("Secret diary is not visible");
+        }
+        return DiaryResponse.from(diary);
     }
 
     @Transactional(readOnly = true)
