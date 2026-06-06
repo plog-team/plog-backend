@@ -16,34 +16,39 @@ public class ExchangeMatchController {
 
     private final ExchangeMatchService matchService;
 
-    // 매칭 신청
     @PostMapping
     public ResponseEntity<ExchangeMatchResponseDto> createMatch(@RequestBody ExchangeMatchRequestDto request) {
-        return ResponseEntity.ok(matchService.createMatch(request.getUserId()));
+        return ResponseEntity.ok(matchService.createMatch(request.getUserId(), request.getTargetUserId()));
     }
 
-    // 매칭 수락 (방 생성)
     @PostMapping("/{matchId}/accept")
     public ResponseEntity<ExchangeRoomResponseDto> acceptMatch(@PathVariable Long matchId) {
         return ResponseEntity.ok(matchService.acceptMatch(matchId));
     }
 
-    // 매칭 조회
     @GetMapping("/{matchId}")
     public ResponseEntity<ExchangeMatchResponseDto> getMatch(@PathVariable Long matchId) {
         return ResponseEntity.ok(matchService.getMatch(matchId));
     }
 
-    // 대기 중인 매칭 목록 조회
     @GetMapping("/pending")
     public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches() {
         return ResponseEntity.ok(matchService.getPendingMatches());
     }
 
-    // 매칭 거절
     @PostMapping("/{matchId}/reject")
     public ResponseEntity<Void> rejectMatch(@PathVariable Long matchId) {
         matchService.rejectMatch(matchId);
         return ResponseEntity.ok().build();
+    }
+
+    // 내 활성 매칭 조회
+    @GetMapping("/my-active")
+    public ResponseEntity<ExchangeMatchResponseDto> getMyActiveMatch(@RequestParam Long userId) {
+        ExchangeMatchResponseDto match = matchService.getMyPendingMatch(userId);
+        if (match == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(match);
     }
 }

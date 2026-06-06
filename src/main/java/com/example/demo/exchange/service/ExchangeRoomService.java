@@ -21,7 +21,6 @@ public class ExchangeRoomService {
     public ExchangeRoomResponseDto getRoom(Long roomId) {
         ExchangeRoom room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("교환방을 찾을 수 없습니다."));
-
         return new ExchangeRoomResponseDto(room);
     }
 
@@ -38,9 +37,15 @@ public class ExchangeRoomService {
     public ExchangeRoomResponseDto closeRoom(Long roomId) {
         ExchangeRoom room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("교환방을 찾을 수 없습니다."));
-
         room.close();
-
         return new ExchangeRoomResponseDto(room);
+    }
+
+    // 내 활성 교환방 조회
+    @Transactional(readOnly = true)
+    public ExchangeRoomResponseDto getActiveRoom(Long userId) {
+        List<ExchangeRoom> rooms = roomRepository.findActiveRoomsByUserId(userId);
+        if (rooms.isEmpty()) return null;
+        return new ExchangeRoomResponseDto(rooms.get(0));
     }
 }

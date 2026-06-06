@@ -32,4 +32,14 @@ public class ExchangeRoomController {
     public ResponseEntity<ExchangeRoomResponseDto> closeRoom(@PathVariable Long roomId) {
         return ResponseEntity.ok(roomService.closeRoom(roomId));
     }
+
+    // 내 활성 교환방 조회
+    @GetMapping("/active")
+    public ResponseEntity<ExchangeRoomResponseDto> getActiveRoom(@RequestParam Long userId) {
+        ExchangeRoomResponseDto room = roomService.getActiveRoom(userId);
+        if (room == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(room);
+    }
 }

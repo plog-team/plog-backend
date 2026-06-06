@@ -21,29 +21,34 @@ public class MatchRecommendService {
 
     @Transactional(readOnly = true)
     public List<MatchRecommendResponseDto> recommendMatches(Long userId) {
-        // 내 성향 점수
         Map<String, Double> myScores = preferenceRepository.findByUserId(userId)
                 .stream()
                 .collect(Collectors.toMap(UserPreferenceScore::getCategory, UserPreferenceScore::getScore));
 
-        // 나 제외한 전체 유저
         List<AppUser> otherUsers = appUserRepository.findAll()
                 .stream()
                 .filter(u -> !u.getId().equals(userId))
                 .collect(Collectors.toList());
 
-        // 각 유저와 코사인 유사도 계산
         List<MatchRecommendResponseDto> result = new ArrayList<>();
         for (AppUser user : otherUsers) {
-            Map<String, Double> otherScores = preferenceRepository.findByUserId(user.getId())
-                    .stream()
+            List<UserPreferenceScore> otherPreferences = preferenceRepository.findByUserId(user.getId());
+
+            Map<String, Double> otherScores = otherPreferences.stream()
                     .collect(Collectors.toMap(UserPreferenceScore::getCategory, UserPreferenceScore::getScore));
 
             double similarity = cosineSimilarity(myScores, otherScores);
-            result.add(new MatchRecommendResponseDto(user.getId(), user.getNickname(), similarity));
+
+            // top3 카테고리 추출 (score 높은 순)
+            List<String> topCategories = otherPreferences.stream()
+                    .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
+                    .limit(3)
+                    .map(UserPreferenceScore::getCategory)
+                    .collect(Collectors.toList());
+
+            result.add(new MatchRecommendResponseDto(user.getId(), user.getNickname(), similarity, topCategories));
         }
 
-        // 유사도 높은 순 정렬
         result.sort((a, b) -> Double.compare(b.getSimilarityScore(), a.getSimilarityScore()));
 
         return result;
