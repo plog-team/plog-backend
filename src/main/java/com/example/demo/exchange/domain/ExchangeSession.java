@@ -30,6 +30,7 @@ public class ExchangeSession {
     public ExchangeSession(ExchangeRoom exchangeRoom, LocalDate startDate, String status) {
         this.exchangeRoom = exchangeRoom;
         this.startDate = startDate;
+        this.endDate = startDate.plusDays(7);
         this.status = status;
         this.isExtended = false;
     }
@@ -37,5 +38,10 @@ public class ExchangeSession {
     public void end(LocalDate endDate) {
         this.endDate = endDate;
         this.status = "CLOSED";
+    }
+
+    public void extend() {
+        this.endDate = this.endDate.plusDays(7);
+        this.isExtended = true;
     }
 }
