@@ -13,6 +13,7 @@ public class ExchangeMatchResponseDto {
     private LocalDateTime createdAt;
     private String requesterNickname;
     private List<String> topCategories;
+    private Long partnerUserId;
 
     public ExchangeMatchResponseDto(ExchangeMatch match) {
         this.id = match.getId();
@@ -33,5 +34,14 @@ public class ExchangeMatchResponseDto {
         this.createdAt = match.getCreatedAt();
         this.requesterNickname = requesterNickname;
         this.topCategories = topCategories;
+    }
+
+    public ExchangeMatchResponseDto(ExchangeMatch match, String requesterNickname, List<String> topCategories, Long partnerUserId) {
+        this.id = match.getId();
+        this.status = match.getStatus();
+        this.createdAt = match.getCreatedAt();
+        this.requesterNickname = requesterNickname;
+        this.topCategories = topCategories;
+        this.partnerUserId = partnerUserId;
     }
 }

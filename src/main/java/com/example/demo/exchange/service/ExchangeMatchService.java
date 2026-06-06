@@ -42,11 +42,9 @@ public class ExchangeMatchService {
         ExchangeMatch match = new ExchangeMatch("PENDING", LocalDateTime.now());
         matchRepository.save(match);
 
-        // 신청자 저장
         MatchParticipant participant = new MatchParticipant(match, userId);
         participantRepository.save(participant);
 
-        // 상대방도 저장
         if (targetUserId != null) {
             MatchParticipant targetParticipant = new MatchParticipant(match, targetUserId);
             participantRepository.save(targetParticipant);
@@ -56,18 +54,26 @@ public class ExchangeMatchService {
         return new ExchangeMatchResponseDto(match);
     }
 
-    // 매칭 수락 (방 생성)
+    // 매칭 수락 (방 생성) - 중복 방 생성 방지
     @Transactional
     public ExchangeRoomResponseDto acceptMatch(Long matchId) {
         ExchangeMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("매칭을 찾을 수 없습니다."));
+
+        List<ExchangeRoom> existingRooms = roomRepository.findAll()
+                .stream()
+                .filter(r -> r.getExchangeMatch().getId().equals(matchId))
+                .collect(Collectors.toList());
+
+        if (!existingRooms.isEmpty()) {
+            return new ExchangeRoomResponseDto(existingRooms.get(0));
+        }
 
         match.updateStatus("MATCHED");
 
         ExchangeRoom room = new ExchangeRoom(match, "ACTIVE", LocalDateTime.now());
         roomRepository.save(room);
 
-        // 신청자(첫 번째 참가자)에게 수락 알림
         List<MatchParticipant> participants = participantRepository.findAllByExchangeMatchId(matchId);
         if (!participants.isEmpty()) {
             notificationService.createNotification(
@@ -77,7 +83,7 @@ public class ExchangeMatchService {
         return new ExchangeRoomResponseDto(room);
     }
 
-    // 매칭 조회 - 상대방 닉네임 + 카테고리 반환
+    // 매칭 조회 - 상대방 닉네임 + 카테고리 + partnerUserId 반환
     @Transactional(readOnly = true)
     public ExchangeMatchResponseDto getMatch(Long matchId) {
         ExchangeMatch match = matchRepository.findById(matchId)
@@ -90,7 +96,7 @@ public class ExchangeMatchService {
                 .orElse(null);
 
         if (targetParticipant == null) {
-            return new ExchangeMatchResponseDto(match, "사용자", List.of());
+            return new ExchangeMatchResponseDto(match, "사용자", List.of(), null);
         }
 
         Long targetUserId = targetParticipant.getUserId();
@@ -106,7 +112,7 @@ public class ExchangeMatchService {
                 .map(UserPreferenceScore::getCategory)
                 .collect(Collectors.toList());
 
-        return new ExchangeMatchResponseDto(match, nickname, topCategories);
+        return new ExchangeMatchResponseDto(match, nickname, topCategories, targetUserId);
     }
 
     // 대기 중인 매칭 목록 조회

@@ -1,9 +1,11 @@
 package com.example.demo.exchange.service;
 
 import com.example.demo.exchange.domain.AppUser;
+import com.example.demo.exchange.domain.Block;
 import com.example.demo.exchange.domain.UserPreferenceScore;
 import com.example.demo.exchange.dto.MatchRecommendResponseDto;
 import com.example.demo.exchange.repository.AppUserRepository;
+import com.example.demo.exchange.repository.BlockRepository;
 import com.example.demo.exchange.repository.UserPreferenceScoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,9 +20,17 @@ public class MatchRecommendService {
 
     private final UserPreferenceScoreRepository preferenceRepository;
     private final AppUserRepository appUserRepository;
+    private final BlockRepository blockRepository;
 
     @Transactional(readOnly = true)
     public List<MatchRecommendResponseDto> recommendMatches(Long userId) {
+        // 내가 차단한 + 나를 차단한 사용자 ID 목록
+        Set<Long> excludedIds = new HashSet<>();
+        blockRepository.findByBlockerId(userId)
+                .forEach(b -> excludedIds.add(b.getBlockedId()));
+        blockRepository.findByBlockedId(userId)
+                .forEach(b -> excludedIds.add(b.getBlockerId()));
+
         Map<String, Double> myScores = preferenceRepository.findByUserId(userId)
                 .stream()
                 .collect(Collectors.toMap(UserPreferenceScore::getCategory, UserPreferenceScore::getScore));
@@ -28,6 +38,7 @@ public class MatchRecommendService {
         List<AppUser> otherUsers = appUserRepository.findAll()
                 .stream()
                 .filter(u -> !u.getId().equals(userId))
+                .filter(u -> !excludedIds.contains(u.getId()))
                 .collect(Collectors.toList());
 
         List<MatchRecommendResponseDto> result = new ArrayList<>();
@@ -39,7 +50,6 @@ public class MatchRecommendService {
 
             double similarity = cosineSimilarity(myScores, otherScores);
 
-            // top3 카테고리 추출 (score 높은 순)
             List<String> topCategories = otherPreferences.stream()
                     .sorted((a, b) -> Double.compare(b.getScore(), a.getScore()))
                     .limit(3)

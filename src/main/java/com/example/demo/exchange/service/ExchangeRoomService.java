@@ -1,5 +1,6 @@
 package com.example.demo.exchange.service;
 
+import com.example.demo.exchange.domain.ExchangeMatch;
 import com.example.demo.exchange.domain.ExchangeRoom;
 import com.example.demo.exchange.dto.ExchangeRoomResponseDto;
 import com.example.demo.exchange.repository.ExchangeRoomRepository;
@@ -32,12 +33,19 @@ public class ExchangeRoomService {
                 .collect(Collectors.toList());
     }
 
-    // 교환방 종료
+    // 교환방 종료 + 매칭 상태 변경
     @Transactional
     public ExchangeRoomResponseDto closeRoom(Long roomId) {
         ExchangeRoom room = roomRepository.findById(roomId)
                 .orElseThrow(() -> new RuntimeException("교환방을 찾을 수 없습니다."));
         room.close();
+
+        // 매칭 상태도 REJECTED로 변경
+        ExchangeMatch match = room.getExchangeMatch();
+        if (match != null) {
+            match.updateStatus("REJECTED");
+        }
+
         return new ExchangeRoomResponseDto(room);
     }
 
