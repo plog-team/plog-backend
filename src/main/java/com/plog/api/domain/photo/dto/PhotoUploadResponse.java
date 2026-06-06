@@ -12,5 +12,6 @@ public record PhotoUploadResponse(
     Integer height,
     Long sizeBytes,
     String storedPath,
-    boolean cacheHit
+    boolean cacheHit,
+    PhotoAutoInputContext context
 ) {}
