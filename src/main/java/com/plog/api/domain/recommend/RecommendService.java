@@ -23,7 +23,7 @@ public class RecommendService {
     @Transactional
     public void addBookmark(Long userId, BookmarkRequest req) {
         if (bookmarkRepo.existsByUserIdAndContentId(userId, req.contentId())) {
-            throw new BadRequestException("이미 북마크된 장소입니다");
+            throw new BadRequestException("이미 북마크된 항목입니다");
         }
         bookmarkRepo.save(Bookmark.builder()
                 .userId(userId)
@@ -63,6 +63,29 @@ public class RecommendService {
                 .contentTypeId(req.contentTypeId())
                 .category(req.category())
                 .build());
+
+        // 클릭 로그 저장 후 선호도 자동 갱신
+        syncPreferenceFromClickLog(userId);
+    }
+
+    // 클릭 로그 기반으로 선호 카테고리 자동 업데이트
+    @Transactional
+    public void syncPreferenceFromClickLog(Long userId) {
+        List<Object[]> rows = clickLogRepo.findTopCategoriesByUserId(userId);
+        if (rows.isEmpty()) return;
+
+        List<String> topCategories = rows.stream()
+                .map(r -> (String) r[0])
+                .limit(3) // 상위 3개 카테고리만
+                .toList();
+
+        UserPreference pref = preferenceRepo.findByUserId(userId)
+                .orElse(UserPreference.builder()
+                        .userId(userId)
+                        .preferredCategories("")
+                        .build());
+        pref.update(topCategories);
+        preferenceRepo.save(pref);
     }
 
     // 선호 카테고리
