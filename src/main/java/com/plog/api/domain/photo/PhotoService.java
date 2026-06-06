@@ -7,9 +7,11 @@ import java.nio.file.Paths;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.domain.cache.ImageAnalysisCache;
@@ -17,6 +19,10 @@ import com.plog.api.domain.cache.ImageAnalysisCacheRepository;
 import com.plog.api.domain.photo.dto.PhotoUploadResponse;
 import com.plog.api.util.ImageResizer;
 import com.plog.api.util.Sha256Hasher;
+import com.plog.api.domain.photo.dto.PhotoAutoInputContext;
+import com.plog.api.pipeline.ExifExtractNode;
+import com.plog.api.pipeline.dto.ContextResult;
+import com.plog.api.pipeline.dto.ExifResult;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +34,9 @@ public class PhotoService {
 
     private final PhotoRepository photoRepository;
     private final ImageAnalysisCacheRepository cacheRepository;
-
+    private final ExifExtractNode exifExtractNode;
+    private final PhotoAutoInputEnricher photoAutoInputEnricher;
+    private final PhotoLocationRepository photoLocationRepository;
     @Value("${plog.upload.base-dir:./uploads}")
     private String baseDir;
 
@@ -49,6 +57,9 @@ public class PhotoService {
             throw new BadRequestException("파일 읽기 실패: " + e.getMessage());
         }
 
+        ExifResult exif = exifExtractNode.extract(rawBytes);
+        ContextResult enrichedContext = photoAutoInputEnricher.enrich(exif);
+
         String sha = Sha256Hasher.hex(rawBytes);
         boolean cacheHit = cacheRepository.findBySha256(sha).isPresent();
 
@@ -63,7 +74,6 @@ public class PhotoService {
         String storedFilename = sha + "." + resized.format();
         Path userDir = Paths.get(baseDir, String.valueOf(userId));
         Path target = userDir.resolve(storedFilename);
-        // Thumbnailator 리사이즈가 EXIF를 제거하므로 원본 bytes를 별도 저장
         Path originalTarget = userDir.resolve(sha + ".original");
         try {
             Files.createDirectories(userDir);
@@ -86,6 +96,17 @@ public class PhotoService {
                 .height(resized.height())
                 .sizeBytes((long) resized.bytes().length)
                 .storedPath(target.toString().replace('\\', '/'))
+                .capturedAt(exif.capturedAt())
+                .build());
+        // 사진 EXIF/API 기반 자동입력 정보를 photo_location 테이블에 저장
+        photoLocationRepository.save(PhotoLocation.builder()
+                .photoId(photo.getId())
+                .latitude(exif.latitude())
+                .longitude(exif.longitude())
+                .takenAt(exif.capturedAt())
+                .locationName(enrichedContext.locationHint())
+                .weather(enrichedContext.weather())
+                .temperature(enrichedContext.temperature())
                 .build());
 
         log.info("Uploaded photo id={} userId={} sha={} {}x{} cacheHit={}",
@@ -101,8 +122,36 @@ public class PhotoService {
                 .sizeBytes(photo.getSizeBytes())
                 .storedPath(photo.getStoredPath())
                 .cacheHit(cacheHit)
+                .context(toAutoInputContext(photo.getId(), exif, enrichedContext))
                 .build();
     }
+    private PhotoAutoInputContext toAutoInputContext(Long photoId, ExifResult exif, ContextResult context) {
+        return PhotoAutoInputContext.builder()
+                .photoId(photoId)
+                .capturedAt(exif.capturedAt())
+                .date(exif.capturedAt() == null ? null : exif.capturedAt().toLocalDate())
+                .latitude(exif.latitude())
+                .longitude(exif.longitude())
+                .locationHint(context.locationHint())
+                .weather(context.weather())
+                .temperature(context.temperature())
+                .build();
+    }
+
+
+    @Transactional
+    public void deletePhoto(Long photoId, Long userId) {
+        Photo photo = photoRepository.findById(photoId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "사진을 찾을 수 없습니다."));
+
+        if (!photo.getUserId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "삭제 권한이 없습니다.");
+        }
+
+        photo.setDeleted(true);
+        photoRepository.save(photo);
+    }
+
 
     private String extractFormat(String mime, String filename) {
         if (mime != null) {

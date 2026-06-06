@@ -56,6 +56,12 @@ public class Photo extends BaseTimeEntity {
     @Column(name = "captured_at")
     private LocalDateTime capturedAt;
 
+    @Column(name = "is_deleted", nullable = false)
+    private boolean deleted = false;
+
+    public boolean isDeleted() { return deleted; }
+    public void setDeleted(boolean deleted) { this.deleted = deleted; }
+
     @Builder
     private Photo(Long userId, String sha256, String originalFilename, String mimeType,
                   Integer width, Integer height, Long sizeBytes, String storedPath,

@@ -166,6 +166,17 @@ CREATE TABLE IF NOT EXISTS user_state_memory (
   UNIQUE KEY uk_user_state_memory_user_key (user_id, memory_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE photo_location (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    photo_id BIGINT NOT NULL,
+    latitude DECIMAL(10,7),
+    longitude DECIMAL(10,7),
+    taken_at DATETIME(6),
+    location_name VARCHAR(255),
+    weather VARCHAR(100),
+    temperature DOUBLE
+);
+
 INSERT INTO app_user (id, name, email, created_at, updated_at)
 VALUES
   (1, 'Plog Tester', 'tester@plog.local', NOW(6), NOW(6)),
