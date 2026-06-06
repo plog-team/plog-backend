@@ -25,4 +25,22 @@ public class SessionParticipant {
     private LocalDateTime joinedAt;
 
     private LocalDateTime leftAt;
+
+    @Column(name = "extend_agreed")
+    private boolean extendAgreed;
+
+    public SessionParticipant(ExchangeSession session, Long userId) {
+        this.exchangeSession = session;
+        this.userId = userId;
+        this.joinedAt = LocalDateTime.now();
+        this.extendAgreed = false;
+    }
+
+    public void agreeExtend() {
+        this.extendAgreed = true;
+    }
+
+    public void leave() {
+        this.leftAt = LocalDateTime.now();
+    }
 }

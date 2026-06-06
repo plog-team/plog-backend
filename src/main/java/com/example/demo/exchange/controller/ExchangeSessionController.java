@@ -5,6 +5,7 @@ import com.example.demo.exchange.service.ExchangeSessionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/exchange/sessions")
@@ -31,9 +32,23 @@ public class ExchangeSessionController {
         return ResponseEntity.ok(sessionService.getSessionByRoomId(roomId));
     }
 
+    // 세션 연장 동의
+    @PostMapping("/{sessionId}/extend")
+    public ResponseEntity<ExchangeSessionResponseDto> agreeExtend(
+            @PathVariable Long sessionId,
+            @RequestParam Long userId) {
+        return ResponseEntity.ok(sessionService.agreeExtend(sessionId, userId));
+    }
+
     // 세션 종료
     @PatchMapping("/{sessionId}/end")
     public ResponseEntity<ExchangeSessionResponseDto> endSession(@PathVariable Long sessionId) {
         return ResponseEntity.ok(sessionService.endSession(sessionId));
+    }
+
+    // 연장 동의 여부 조회
+    @GetMapping("/{sessionId}/extend-status")
+    public ResponseEntity<Map<String, Boolean>> getExtendStatus(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(sessionService.getExtendStatus(sessionId));
     }
 }
