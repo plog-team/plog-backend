@@ -35,4 +35,8 @@ public class ExchangeDiary {
         this.dayNumber = dayNumber;
         this.createdAt = createdAt;
     }
+
+    public void updateContent(String content) {
+        this.content = content;
+    }
 }

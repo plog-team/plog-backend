@@ -22,6 +22,14 @@ public class ExchangeDiaryController {
         return ResponseEntity.ok(diaryService.createDiary(request));
     }
 
+    // 일기 수정
+    @PatchMapping("/{diaryId}")
+    public ResponseEntity<ExchangeDiaryResponseDto> updateDiary(
+            @PathVariable Long diaryId,
+            @RequestBody java.util.Map<String, String> body) {
+        return ResponseEntity.ok(diaryService.updateDiary(diaryId, body.get("content")));
+    }
+
     // 세션별 일기 목록 조회
     @GetMapping("/session/{sessionId}")
     public ResponseEntity<List<ExchangeDiaryResponseDto>> getDiaries(@PathVariable Long sessionId) {

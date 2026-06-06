@@ -40,7 +40,6 @@ public class ExchangeDiaryService {
 
         ExchangeDiary saved = diaryRepository.save(diary);
 
-        // 상대방에게 일기 작성 알림 전송
         sessionParticipantRepository.findByExchangeSessionId(session.getId())
                 .stream()
                 .filter(p -> !p.getUserId().equals(request.getUserId()))
@@ -49,6 +48,15 @@ public class ExchangeDiaryService {
                         p.getUserId(), "DIARY_WRITTEN", saved.getId(), "DIARY"));
 
         return new ExchangeDiaryResponseDto(saved);
+    }
+
+    // 일기 수정
+    @Transactional
+    public ExchangeDiaryResponseDto updateDiary(Long diaryId, String content) {
+        ExchangeDiary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new RuntimeException("일기를 찾을 수 없습니다."));
+        diary.updateContent(content);
+        return new ExchangeDiaryResponseDto(diary);
     }
 
     // 세션의 일기 목록 조회

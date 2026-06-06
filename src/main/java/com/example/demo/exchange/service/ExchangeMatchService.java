@@ -67,9 +67,12 @@ public class ExchangeMatchService {
         ExchangeRoom room = new ExchangeRoom(match, "ACTIVE", LocalDateTime.now());
         roomRepository.save(room);
 
-        participantRepository.findByExchangeMatchId(matchId)
-                .ifPresent(p -> notificationService.createNotification(
-                        p.getUserId(), "MATCH_ACCEPTED", room.getId(), "ROOM"));
+        // 신청자(첫 번째 참가자)에게 수락 알림
+        List<MatchParticipant> participants = participantRepository.findAllByExchangeMatchId(matchId);
+        if (!participants.isEmpty()) {
+            notificationService.createNotification(
+                    participants.get(0).getUserId(), "MATCH_ACCEPTED", room.getId(), "ROOM");
+        }
 
         return new ExchangeRoomResponseDto(room);
     }
@@ -80,7 +83,6 @@ public class ExchangeMatchService {
         ExchangeMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("매칭을 찾을 수 없습니다."));
 
-        // 상대방(userId=1이 아닌 사람) 찾기
         MatchParticipant targetParticipant = participantRepository.findAllByExchangeMatchId(matchId)
                 .stream()
                 .filter(p -> !p.getUserId().equals(1L))

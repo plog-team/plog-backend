@@ -13,16 +13,22 @@ public class ExchangeSessionController {
 
     private final ExchangeSessionService sessionService;
 
-    // 세션 시작
+    // 세션 시작 (없으면 생성, 있으면 기존 반환)
     @PostMapping("/{roomId}")
     public ResponseEntity<ExchangeSessionResponseDto> startSession(@PathVariable Long roomId) {
         return ResponseEntity.ok(sessionService.startSession(roomId));
     }
 
-    // 세션 조회
+    // sessionId로 세션 조회
     @GetMapping("/{sessionId}")
     public ResponseEntity<ExchangeSessionResponseDto> getSession(@PathVariable Long sessionId) {
         return ResponseEntity.ok(sessionService.getSession(sessionId));
+    }
+
+    // roomId로 세션 조회
+    @GetMapping("/room/{roomId}")
+    public ResponseEntity<ExchangeSessionResponseDto> getSessionByRoomId(@PathVariable Long roomId) {
+        return ResponseEntity.ok(sessionService.getSessionByRoomId(roomId));
     }
 
     // 세션 종료
