@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import com.plog.api.domain.aiguide.Persona;
 import com.plog.api.domain.aiguide.QuestionType;
+import com.plog.api.pipeline.dto.AnsweredQa;
 import com.plog.api.pipeline.dto.BatchQuestion;
 import com.plog.api.pipeline.dto.BatchQuestionsResponse;
 import com.plog.api.pipeline.dto.ChatResponse;
@@ -96,6 +97,27 @@ public class GeminiClientMock implements GeminiClient {
             ));
         }
         return new BatchQuestionsResponse(qs);
+    }
+
+    @Override
+    public BatchQuestion generateNextQuestion(List<ImagePart> images, Persona persona,
+            List<AnsweredQa> priorAnswers, int nextOrderIdx, int targetCount) {
+        int answered = priorAnswers == null ? 0 : priorAnswers.size();
+        log.info("[Mock] generateNextQuestion orderIdx={} prior={} target={}", nextOrderIdx, answered, targetCount);
+        QuestionType[] types = {QuestionType.SITUATION, QuestionType.MEANING, QuestionType.EMOTION};
+        String lastAnswer = answered == 0 ? null
+                : priorAnswers.get(answered - 1).answer();
+        String text = lastAnswer == null || lastAnswer.isBlank()
+                ? "Mock 질문 " + nextOrderIdx + ": 사진 속 한 장면에서 가장 인상 깊었던 한 가지는 무엇인가요?"
+                : "Mock 질문 " + nextOrderIdx + ": 방금 \"" + lastAnswer.trim() + "\"라고 하셨는데, 그 순간을 조금 더 들려주실래요?";
+        return new BatchQuestion(
+                text,
+                types[(nextOrderIdx - 1) % types.length],
+                List.of(
+                        "답변 후보 A (담백한 사실)",
+                        "답변 후보 B (감정 한 줄)",
+                        "답변 후보 C (특별한 디테일)"
+                ));
     }
 
     @Override

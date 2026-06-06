@@ -14,6 +14,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.plog.api.domain.aiguide.dto.AnswerRequest;
+import com.plog.api.domain.aiguide.dto.AnswerResponse;
 import com.plog.api.domain.aiguide.dto.CreateSessionRequest;
 import com.plog.api.domain.aiguide.dto.CreateSessionResponse;
 import com.plog.api.domain.aiguide.dto.DraftResponse;
@@ -65,9 +66,9 @@ public class AiSessionController {
     }
 
     @PostMapping("/{sessionId}/questions/{questionId}/answer")
-    public GuideQuestionDto answer(@PathVariable long sessionId,
-                                   @PathVariable long questionId,
-                                   @Valid @RequestBody(required = false) AnswerRequest req) {
+    public AnswerResponse answer(@PathVariable long sessionId,
+                                 @PathVariable long questionId,
+                                 @Valid @RequestBody(required = false) AnswerRequest req) {
         return aiSessionService.answerQuestion(UserContext.get(), sessionId, questionId, req);
     }
 
