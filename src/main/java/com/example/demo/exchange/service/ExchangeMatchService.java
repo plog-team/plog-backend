@@ -83,15 +83,15 @@ public class ExchangeMatchService {
         return new ExchangeRoomResponseDto(room);
     }
 
-    // 매칭 조회 - 상대방 닉네임 + 카테고리 + partnerUserId 반환
+    // 매칭 조회 - userId 파라미터로 상대방 찾기
     @Transactional(readOnly = true)
-    public ExchangeMatchResponseDto getMatch(Long matchId) {
+    public ExchangeMatchResponseDto getMatch(Long matchId, Long userId) {
         ExchangeMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("매칭을 찾을 수 없습니다."));
 
         MatchParticipant targetParticipant = participantRepository.findAllByExchangeMatchId(matchId)
                 .stream()
-                .filter(p -> !p.getUserId().equals(1L))
+                .filter(p -> !p.getUserId().equals(userId))
                 .findFirst()
                 .orElse(null);
 
@@ -117,13 +117,13 @@ public class ExchangeMatchService {
 
     // 대기 중인 매칭 목록 조회
     @Transactional(readOnly = true)
-    public List<ExchangeMatchResponseDto> getPendingMatches() {
+    public List<ExchangeMatchResponseDto> getPendingMatches(Long userId) {
         return matchRepository.findByStatus("PENDING")
                 .stream()
                 .map(match -> {
                     String nickname = participantRepository.findAllByExchangeMatchId(match.getId())
                             .stream()
-                            .filter(p -> !p.getUserId().equals(1L))
+                            .filter(p -> !p.getUserId().equals(userId))
                             .findFirst()
                             .flatMap(p -> appUserRepository.findById(p.getUserId()))
                             .map(AppUser::getNickname)

@@ -27,13 +27,16 @@ public class ExchangeMatchController {
     }
 
     @GetMapping("/{matchId}")
-    public ResponseEntity<ExchangeMatchResponseDto> getMatch(@PathVariable Long matchId) {
-        return ResponseEntity.ok(matchService.getMatch(matchId));
+    public ResponseEntity<ExchangeMatchResponseDto> getMatch(
+            @PathVariable Long matchId,
+            @RequestParam Long userId) {
+        return ResponseEntity.ok(matchService.getMatch(matchId, userId));
     }
 
     @GetMapping("/pending")
-    public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches() {
-        return ResponseEntity.ok(matchService.getPendingMatches());
+    public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches(
+            @RequestParam Long userId) {
+        return ResponseEntity.ok(matchService.getPendingMatches(userId));
     }
 
     @PostMapping("/{matchId}/reject")
@@ -42,7 +45,6 @@ public class ExchangeMatchController {
         return ResponseEntity.ok().build();
     }
 
-    // 내 활성 매칭 조회
     @GetMapping("/my-active")
     public ResponseEntity<ExchangeMatchResponseDto> getMyActiveMatch(@RequestParam Long userId) {
         ExchangeMatchResponseDto match = matchService.getMyPendingMatch(userId);
