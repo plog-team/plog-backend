@@ -45,13 +45,18 @@ public class DiaryController {
         return diaryService.list(UserContext.get(), limit);
     }
 
-    /** 제목/내용/장소 기준 일기 검색 */
+    /** 제목/내용/장소/날짜/감정 기준 일기 검색 */
     @GetMapping("/search")
     public List<DiarySearchResponse> search(
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(required = false) String emotion,
             @RequestParam(defaultValue = "latest") String sort
     ) {
-        return diaryService.search(UserContext.get(), keyword, sort);
+        return diaryService.search(UserContext.get(), keyword, startDate, endDate, emotion, sort);
     }
     @GetMapping("/by-date/{date}")
     public DiaryResponse getByDate(
