@@ -103,21 +103,51 @@ public class DiaryService {
                 .toList();
     }
 
-    /** 제목/본문/장소 기준 일기 검색 */
+    /** 제목/본문/장소/날짜/감정 기준 일기 검색 */
     @Transactional(readOnly = true)
-    public List<DiarySearchResponse> search(long userId, String keyword, String sort) {
+    public List<DiarySearchResponse> search(
+            long userId,
+            String keyword,
+            LocalDate startDate,
+            LocalDate endDate,
+            String emotion,
+            String sort
+    ) {
         String normalizedKeyword = normalizeOptional(keyword);
+        String normalizedEmotion = normalizeOptional(emotion);
 
         List<Diary> diaries;
 
         if ("oldest".equalsIgnoreCase(sort)) {
-            diaries = diaryRepository.searchDiariesOldest(userId, normalizedKeyword);
+            diaries = diaryRepository.searchDiariesOldest(
+                    userId,
+                    normalizedKeyword,
+                    startDate,
+                    endDate,
+                    normalizedEmotion
+            );
         } else {
-            diaries = diaryRepository.searchDiariesLatest(userId, normalizedKeyword);
+            diaries = diaryRepository.searchDiariesLatest(
+                    userId,
+                    normalizedKeyword,
+                    startDate,
+                    endDate,
+                    normalizedEmotion
+            );
         }
 
         return diaries.stream()
-                .map(diary -> DiarySearchResponse.from(diary, representativeImageUrl(userId, diary)))
+                .map(diary -> {
+                    String primaryEmotion = diaryRepository
+                            .findPrimaryEmotion(userId, diary.getId())
+                            .orElse(null);
+
+                    return DiarySearchResponse.from(
+                            diary,
+                            primaryEmotion,
+                            representativeImageUrl(userId, diary)
+                    );
+                })
                 .toList();
     }
 

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.common.exception.NotFoundException;
 import com.plog.api.domain.aiguide.dto.AnswerRequest;
+import com.plog.api.domain.aiguide.dto.AnswerResponse;
 import com.plog.api.domain.aiguide.dto.ChatMessageDto;
 import com.plog.api.domain.aiguide.dto.CreateSessionRequest;
 import com.plog.api.domain.aiguide.dto.CreateSessionResponse;
@@ -36,6 +37,7 @@ import com.plog.api.pipeline.ExifExtractNode;
 import com.plog.api.pipeline.GeminiDraftNode;
 import com.plog.api.pipeline.GuideQuestionNode;
 import com.plog.api.pipeline.VisionAnalysisNode;
+import com.plog.api.pipeline.dto.AnsweredQa;
 import com.plog.api.pipeline.dto.BatchQuestion;
 import com.plog.api.pipeline.dto.BatchQuestionsResponse;
 import com.plog.api.pipeline.dto.ChatResponse;
@@ -137,7 +139,7 @@ public class AiSessionService {
 
         if (mode == AiSession.Mode.CONVERSATION) {
             // CONVERSATION: 첫 AI 인삿말 생성 + ChatMessage 저장 — 모든 사진 + 캡션 전달
-            int requiredMinTurns = Math.max(5, imageParts.size() * 2 + 1);
+            int requiredMinTurns = Math.max(4, Math.min(6, imageParts.size() * 2 + 1));
             ChatResponse first = geminiClient.continueConversation(imageParts, List.of(), 0, requiredMinTurns);
             ChatMessage assistant = chatMessageRepository.save(ChatMessage.builder()
                     .sessionId(session.getId())
@@ -156,42 +158,74 @@ public class AiSessionService {
                     .build();
         }
 
-        // BATCH 질문 수 = 사진 수 × 2.5 (5~10개). 마지막 2개는 핵심 장면 심층 탐구.
-        int questionCount = Math.max(5, Math.min(10, (int) Math.ceil(imageParts.size() * 2.5)));
-        BatchQuestionsResponse batch;
-        try {
-            batch = geminiClient.generateBatchQuestions(imageParts, persona, questionCount);
-        } catch (Exception e) {
-            log.warn("Gemini 질문 생성 실패 → 결정론 fallback. cause={}", e.getMessage());
-            batch = guideQuestionNode.generateFallback(firstVision, questionCount);
-        }
-        List<GuideQuestion> qs = new ArrayList<>(batch.questions().size());
-        for (int i = 0; i < batch.questions().size(); i++) {
-            BatchQuestion bq = batch.questions().get(i);
-            String suggestedJson = null;
-            try {
-                suggestedJson = objectMapper.writeValueAsString(
-                        bq.suggestedAnswers() == null ? List.of() : bq.suggestedAnswers());
-            } catch (Exception je) {
-                log.warn("suggestedAnswers JSON 직렬화 실패: {}", je.getMessage());
-            }
-            qs.add(questionRepository.save(GuideQuestion.builder()
-                    .sessionId(session.getId())
-                    .orderIdx(i + 1)
-                    .question(bq.text())
-                    .questionType(bq.type() == null ? com.plog.api.domain.aiguide.QuestionType.SITUATION : bq.type())
-                    .suggestedAnswersJson(suggestedJson)
-                    .build()));
-        }
-        log.info("Created BATCH session id={} userId={} photos={} questions={}",
-                session.getId(), userId, csv, qs.size());
+        int targetCount = computeTargetCount(imageParts.size());
+        BatchQuestion firstQ = generateNextQuestionSafe(imageParts, persona, List.of(), 1, targetCount, firstVision);
+        GuideQuestion q1 = persistQuestion(session.getId(), 1, firstQ);
+        log.info("Created BATCH session id={} userId={} photos={} targetCount={}",
+                session.getId(), userId, csv, targetCount);
         return CreateSessionResponse.builder()
                 .sessionId(session.getId())
                 .status(session.getStatus().name())
                 .mode(mode.name())
-                .questions(qs.stream().map(GuideQuestionDto::from).toList())
+                .questions(List.of(GuideQuestionDto.from(q1)))
                 .photos(analyses)
                 .build();
+    }
+
+    private int computeTargetCount(int photoCount) {
+        return Math.max(5, Math.min(10, (int) Math.ceil(photoCount * 2.5)));
+    }
+
+    private int countPhotos(AiSession s) {
+        if (s.getPhotoIdsCsv() == null || s.getPhotoIdsCsv().isBlank()) return 0;
+        int n = 0;
+        for (String part : s.getPhotoIdsCsv().split(",")) {
+            if (!part.trim().isEmpty()) n++;
+        }
+        return n;
+    }
+
+    private boolean isFinishIntent(String msg) {
+        if (msg == null) return false;
+        String m = msg.replaceAll("\\s", "");
+        String[] kw = {"초안", "그만", "충분", "정리해", "이제만들", "마무리", "끝낼", "끝내", "다썼"};
+        for (String k : kw) {
+            if (m.contains(k)) return true;
+        }
+        return false;
+    }
+
+    private GuideQuestion persistQuestion(long sessionId, int orderIdx, BatchQuestion bq) {
+        String suggestedJson = null;
+        try {
+            suggestedJson = objectMapper.writeValueAsString(
+                    bq.suggestedAnswers() == null ? List.of() : bq.suggestedAnswers());
+        } catch (Exception je) {
+            log.warn("suggestedAnswers JSON 직렬화 실패: {}", je.getMessage());
+        }
+        return questionRepository.save(GuideQuestion.builder()
+                .sessionId(sessionId)
+                .orderIdx(orderIdx)
+                .question(bq.text())
+                .questionType(bq.type() == null ? com.plog.api.domain.aiguide.QuestionType.SITUATION : bq.type())
+                .suggestedAnswersJson(suggestedJson)
+                .build());
+    }
+
+    private BatchQuestion generateNextQuestionSafe(List<ImagePart> imageParts, Persona persona,
+            List<AnsweredQa> prior, int orderIdx, int targetCount, VisionResult firstVisionOrNull) {
+        try {
+            return geminiClient.generateNextQuestion(imageParts, persona, prior, orderIdx, targetCount);
+        } catch (Exception e) {
+            log.warn("Gemini 다음 질문 생성 실패 → 결정론 fallback. orderIdx={} cause={}", orderIdx, e.getMessage());
+            List<BatchQuestion> pool = guideQuestionNode.generateFallback(firstVisionOrNull, targetCount).questions();
+            int idx = Math.min(Math.max(orderIdx - 1, 0), pool.size() - 1);
+            if (!pool.isEmpty()) return pool.get(idx);
+            return new BatchQuestion(
+                    "사진 속 한 장면에서 가장 인상 깊었던 한 가지는 무엇인가요?",
+                    com.plog.api.domain.aiguide.QuestionType.EMOTION,
+                    List.of("주변 분위기가 좋았다.", "함께 있던 사람들이 좋았다.", "공간 자체가 인상 깊었다."));
+        }
     }
 
     @Transactional
@@ -225,7 +259,7 @@ public class AiSessionService {
         turns.add(ChatTurn.user(req.message().trim()));
 
         long userTurnCount = turns.stream().filter(t -> "user".equals(t.role())).count();
-        int requiredMinTurns = Math.max(5, imageParts.size() * 2 + 1);
+        int requiredMinTurns = Math.max(4, Math.min(6, imageParts.size() * 2 + 1));
         ChatResponse aiResp = geminiClient.continueConversation(imageParts, turns, (int) userTurnCount, requiredMinTurns);
 
         ChatMessage aMsg = chatMessageRepository.save(ChatMessage.builder()
@@ -239,9 +273,12 @@ public class AiSessionService {
         log.info("Chat sessionId={} userTurn={} readyForDraft={} latency={}ms",
                 sessionId, userTurnCount, aiResp.readyForDraft(), elapsed);
 
+        boolean ready = aiResp.readyForDraft()
+                || (isFinishIntent(req.message()) && userTurnCount >= 3);
+
         return SendChatResponse.builder()
                 .assistantMessage(aMsg.getContent())
-                .readyForDraft(aiResp.readyForDraft())
+                .readyForDraft(ready)
                 .userMessageId(userMsg.getId())
                 .assistantMessageId(aMsg.getId())
                 .latencyMs(elapsed)
@@ -289,7 +326,7 @@ public class AiSessionService {
     }
 
     @Transactional
-    public GuideQuestionDto answerQuestion(long userId, long sessionId, long questionId, AnswerRequest req) {
+    public AnswerResponse answerQuestion(long userId, long sessionId, long questionId, AnswerRequest req) {
         AiSession s = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NotFoundException("세션을 찾을 수 없습니다 id=" + sessionId));
         if (!s.getUserId().equals(userId)) throw new BadRequestException("본인 세션이 아닙니다");
@@ -302,7 +339,41 @@ public class AiSessionService {
             throw new BadRequestException("질문이 해당 세션에 속하지 않습니다");
         }
         q.updateAnswer(req == null ? null : (req.answer() == null ? null : req.answer().trim()));
-        return GuideQuestionDto.from(q);
+
+        List<GuideQuestion> all = questionRepository.findAllBySessionIdOrderByOrderIdxAsc(sessionId);
+        List<GuideQuestion> answeredList = all.stream()
+                .filter(x -> x.getAnswer() != null && !x.getAnswer().isBlank())
+                .toList();
+        int answeredCount = answeredList.size();
+        int targetCount = computeTargetCount(countPhotos(s));
+        boolean done = answeredCount >= targetCount;
+
+        GuideQuestionDto nextDto = null;
+        if (!done) {
+            GuideQuestion pending = all.stream()
+                    .filter(x -> x.getAnswer() == null || x.getAnswer().isBlank())
+                    .findFirst().orElse(null);
+            if (pending != null) {
+                nextDto = GuideQuestionDto.from(pending);
+            } else {
+                int nextOrderIdx = all.stream().mapToInt(GuideQuestion::getOrderIdx).max().orElse(answeredCount) + 1;
+                List<AnsweredQa> prior = answeredList.stream()
+                        .map(x -> new AnsweredQa(x.getQuestion(), x.getAnswer()))
+                        .toList();
+                BatchQuestion bq = generateNextQuestionSafe(
+                        loadAllImageParts(s), Persona.orDefault(s.getPersona()), prior, nextOrderIdx, targetCount, null);
+                nextDto = GuideQuestionDto.from(persistQuestion(sessionId, nextOrderIdx, bq));
+            }
+        }
+        log.info("Answered sessionId={} qid={} answeredCount={} target={} done={}",
+                sessionId, questionId, answeredCount, targetCount, done);
+        return AnswerResponse.builder()
+                .answered(GuideQuestionDto.from(q))
+                .nextQuestion(nextDto)
+                .done(done)
+                .answeredCount(answeredCount)
+                .targetCount(targetCount)
+                .build();
     }
 
     @Transactional
@@ -310,6 +381,15 @@ public class AiSessionService {
         AiSession s = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NotFoundException("세션을 찾을 수 없습니다 id=" + sessionId));
         if (!s.getUserId().equals(userId)) throw new BadRequestException("본인 세션이 아닙니다");
+
+        if (s.getMode() == AiSession.Mode.CONVERSATION) {
+            long userTurns = chatMessageRepository.findAllBySessionIdOrderByOrderIdxAsc(sessionId).stream()
+                    .filter(m -> m.getRole() == ChatMessage.Role.USER)
+                    .count();
+            if (userTurns < 4) {
+                throw new BadRequestException("정보가 부족해서 초안을 작성할 수 없습니다.");
+            }
+        }
 
         // 모든 사진의 vision + exif 로드
         List<VisionResult> allVisions = new ArrayList<>();
