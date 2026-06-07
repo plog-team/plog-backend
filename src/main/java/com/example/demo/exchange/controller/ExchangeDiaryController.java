@@ -35,4 +35,9 @@ public class ExchangeDiaryController {
     public ResponseEntity<List<ExchangeDiaryResponseDto>> getDiaries(@PathVariable Long sessionId) {
         return ResponseEntity.ok(diaryService.getDiariesBySession(sessionId));
     }
+
+    @GetMapping("/{diaryId}")
+    public ResponseEntity<ExchangeDiaryResponseDto> getDiary(@PathVariable Long diaryId) {
+        return ResponseEntity.ok(diaryService.getDiary(diaryId));
+    }
 }

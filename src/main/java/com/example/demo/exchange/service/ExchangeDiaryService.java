@@ -70,4 +70,11 @@ public class ExchangeDiaryService {
                 .map(ExchangeDiaryResponseDto::new)
                 .collect(Collectors.toList());
     }
+
+    @Transactional(readOnly = true)
+    public ExchangeDiaryResponseDto getDiary(Long diaryId) {
+        ExchangeDiary diary = diaryRepository.findById(diaryId)
+                .orElseThrow(() -> new RuntimeException("일기를 찾을 수 없습니다."));
+        return new ExchangeDiaryResponseDto(diary);
+    }
 }
