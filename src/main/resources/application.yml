@@ -36,6 +36,12 @@ server:
 
 # 로컬 업로드 디렉터리 (절대/상대 모두 허용)
 plog:
+  tour:
+    api-key: ${TOUR_API_KEY:}
+    base-url: https://apis.data.go.kr/B551011/KorService2
+  seoul:
+    api-key: ${SEOUL_API_KEY:}
+    base-url: http://openapi.seoul.go.kr:8088
   upload:
     base-dir: ./uploads
 
