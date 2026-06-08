@@ -3,13 +3,17 @@ package com.plog.api.domain.aichat;
 import jakarta.persistence.*;
 import lombok.*;
 
-import com.plog.api.domain.BaseTimeEntity;
+import java.time.LocalDateTime;
+
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
 
 @Getter
 @Entity
 @Table(name = "ai_chat_message")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class AiChatMessage extends BaseTimeEntity {
+public class AiChatMessage {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,6 +31,13 @@ public class AiChatMessage extends BaseTimeEntity {
 
     @Column(nullable = false, length = 30)
     private String messageType;
+
+    @CreationTimestamp
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 
     @Builder
     private AiChatMessage(AiChatSession session, String sender, String message, String messageType) {

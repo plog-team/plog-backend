@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -19,10 +21,10 @@ public class AiChatService {
 
     private final AiChatSessionRepository sessionRepository;
     private final AiChatMessageRepository messageRepository;
-    private final AiChatContextRepository contextRepository;
     private final UserRepository userRepository;
     private final AiChatGeminiClient geminiClient;
     private final JdbcTemplate jdbcTemplate;
+    private final EmotionAnalysisService emotionService;
 
     @Transactional
     public Map<String, Object> startSession(Long userId, String type, String date) {
@@ -192,6 +194,94 @@ public class AiChatService {
         }
     }
 
+    // 대화 종료 시 제목 + 감정 저장
+    @Transactional
+    public void endSession(Long sessionId) {
+        AiChatSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        List<AiChatMessage> messages =
+                messageRepository.findBySessionOrderByCreatedAtAsc(session);
+
+        boolean hasUserMessage = messages.stream()
+                .anyMatch(m -> "USER".equals(m.getSender()));
+
+        if (!hasUserMessage) {
+            messageRepository.deleteAll(messages);
+            sessionRepository.delete(session);
+            return;
+        }
+
+        // 기존 코드
+        messages.stream()
+                .filter(m -> "USER".equals(m.getSender()))
+                .findFirst()
+                .ifPresent(firstUserMsg -> {
+                    String content = firstUserMsg.getMessage();
+
+                    if (isDiaryDate(content)) {
+                        session.setIsDiary(true);
+                        session.setDiaryDate(parseDate(content));
+                        session.setTitle(content.trim());
+                    } else {
+                        session.setTitle(content.length() > 30
+                                ? content.substring(0, 30) + "..."
+                                : content);
+                    }
+                });
+
+        try {
+            EmotionResult emotion = emotionService.analyze(messages);
+            session.setEmotion(emotion.getEmotion());
+            session.setEmotionScore(emotion.getScore());
+        } catch (Exception e) {
+            log.warn("감정 분석 실패: {}", e.getMessage());
+        }
+
+        sessionRepository.save(session);
+    }
+
+    // 세션 목록 조회
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSessions(Long userId) {
+        return sessionRepository.findByUserIdOrderByCreatedAtDesc(userId)
+            .stream()
+            .map(s -> Map.<String, Object>of(
+                "sessionId", s.getId(),
+                "title", s.getTitle() != null ? s.getTitle() : "새 대화",
+                "type", s.getType(),
+                "emotion", s.getEmotion() != null ? s.getEmotion() : "",
+                "isDiary", s.getIsDiary() != null ? s.getIsDiary() : false,
+                "createdAt", s.getCreatedAt()
+            ))
+            .toList();
+    }
+
+    // 기존 세션 이어하기 (메시지 전체 반환)
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSessionDetail(Long sessionId) {
+        AiChatSession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new RuntimeException("Session not found"));
+
+        List<AiChatMessage> messages = messageRepository.findBySessionOrderByCreatedAtAsc(session);
+
+        List<Map<String, Object>> messageList = messages.stream()
+            .map(m -> Map.<String, Object>of(
+                "sender", m.getSender(),
+                "content", m.getMessage(),
+                "createdAt", m.getCreatedAt()
+            ))
+            .toList();
+
+        return Map.of(
+            "sessionId", session.getId(),
+            "title", session.getTitle() != null ? session.getTitle() : "새 대화",
+            "type", session.getType(),
+            "emotion", session.getEmotion() != null ? session.getEmotion() : "",
+            "messages", messageList
+        );
+    }
+
     @Transactional(readOnly = true)
     public List<AiChatMessage> getMessages(Long sessionId) {
         AiChatSession session = sessionRepository.findById(sessionId)
@@ -199,10 +289,23 @@ public class AiChatService {
         return messageRepository.findBySessionOrderByCreatedAtAsc(session);
     }
 
-    @Transactional
-    public void endSession(Long sessionId) {
-        sessionRepository.findById(sessionId)
-                .orElseThrow(() -> new RuntimeException("Session not found"));
+    private boolean isDiaryDate(String text) {
+        return text.matches(".*\\d{4}.*년.*\\d{1,2}.*월.*\\d{1,2}.*일.*") ||
+               text.matches("\\d{4}-\\d{2}-\\d{2}.*");
+    }
+
+    private LocalDate parseDate(String text) {
+        try {
+            // "2025년 6월 7일" → "2025-06-07"
+            String cleaned = text
+                .replaceAll("\\s", "")
+                .replaceAll("년", "-")
+                .replaceAll("월", "-")
+                .replaceAll("일.*", "");
+            return LocalDate.parse(cleaned, DateTimeFormatter.ofPattern("yyyy-M-d"));
+        } catch (Exception e) {
+            return LocalDate.now();
+        }
     }
 }
 

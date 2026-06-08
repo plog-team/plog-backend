@@ -7,9 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 @Component
@@ -19,6 +21,15 @@ public class AiChatGeminiClient {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final AiChatGeminiConfig config;
+
+    private final AtomicInteger keyIndex = new AtomicInteger(0);
+
+    private String getNextKey() {
+        List<String> keys = config.getApiKeys();
+        if (keys.isEmpty()) throw new RuntimeException("API 키 없음");
+        int idx = keyIndex.getAndIncrement() % keys.size();
+        return keys.get(idx);
+    }
 
     public String chat(String systemPrompt, List<Map<String, Object>> history, String userMessage) {
         List<Map<String, Object>> contents = new java.util.ArrayList<>(history);
@@ -39,10 +50,11 @@ public class AiChatGeminiClient {
         );
 
         String url = config.getEndpoint() + "/models/" + config.getModel()
-                + ":generateContent?key=" + config.getApiKey();
-        
+                + ":generateContent?key=" + getNextKey();  // ← getNextKey() 사용
+
         log.info("Gemini 호출 URL: {}", url);
 
+        
         try {
             String resp = webClient.post()
                     .uri(url)
@@ -52,13 +64,33 @@ public class AiChatGeminiClient {
                     .bodyToMono(String.class)
                     .block();
 
+            log.info("Gemini 응답 = {}", resp);
+
             JsonNode root = objectMapper.readTree(resp);
+
             return root.path("candidates").path(0)
                     .path("content").path("parts").path(0)
-                    .path("text").asText("");
+                    .path("text")
+                    .asText("");
+
+        } catch (WebClientResponseException e) {
+
+            log.error("상태코드 = {}", e.getStatusCode());
+            log.error("응답본문 = {}", e.getResponseBodyAsString());
+
+            throw new RuntimeException(
+                    "AI 응답 생성 실패: " + e.getResponseBodyAsString(),
+                    e
+            );
+
         } catch (Exception e) {
-            log.error("AiChat Gemini 호출 실패: {}", e.getMessage());
-            throw new RuntimeException("AI 응답 생성 실패: " + e.getMessage());
+
+            log.error("Gemini 응답 파싱 실패", e);
+
+            throw new RuntimeException(
+                    "Gemini 응답 파싱 실패",
+                    e
+            );
         }
     }
 }
