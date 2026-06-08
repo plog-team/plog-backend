@@ -177,6 +177,32 @@ CREATE TABLE photo_location (
     temperature DOUBLE
 );
 
+CREATE TABLE emotion_analysis (
+    id BIGINT NOT NULL AUTO_INCREMENT, 
+    diary_id BIGINT NOT NULL, 
+    user_id BIGINT NOT NULL,
+    sentiment VARCHAR(30) NOT NULL, 
+    primary_emotion VARCHAR(50) NULL, 
+    intensity DOUBLE NOT NULL, 
+    confidence DOUBLE NOT NULL, 
+    analyzed_at DATETIME NOT NULL, 
+    PRIMARY KEY (id), UNIQUE (diary_id), 
+    FOREIGN KEY (diary_id) REFERENCES diary(id), 
+    FOREIGN KEY (user_id) REFERENCES app_user(id) 
+    );
+
+CREATE TABLE emotion_detail ( 
+    id BIGINT NOT NULL AUTO_INCREMENT, 
+    analysis_id BIGINT NOT NULL, 
+    emotion VARCHAR(50) NOT NULL, 
+    score DOUBLE NOT NULL, 
+    PRIMARY KEY (id), 
+    UNIQUE (analysis_id, emotion), 
+    FOREIGN KEY (analysis_id) 
+    REFERENCES emotion_analysis(id) );
+
+
+    
 INSERT INTO app_user (id, name, email, created_at, updated_at)
 VALUES
   (1, 'Plog Tester', 'tester@plog.local', NOW(6), NOW(6)),
