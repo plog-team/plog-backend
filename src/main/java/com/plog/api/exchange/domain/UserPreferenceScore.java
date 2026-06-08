@@ -1,26 +1,32 @@
 package com.plog.api.exchange.domain;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user_preference_score")
+@Table(name = "user_preference_score",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "category"}))
 @Getter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class UserPreferenceScore {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id")
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private AppUser user;
 
     private String category;
-    private double score;
 
+    @Setter
+    private float score;
+
+    @Setter
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 }
