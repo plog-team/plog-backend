@@ -36,8 +36,12 @@ public class ApiResponseAdvice implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType selectedContentType,
                                   Class<? extends HttpMessageConverter<?>> selectedConverterType,
                                   ServerHttpRequest request, ServerHttpResponse response) {
+        // 이미지/파일 byte[] 응답은 ApiResponse로 감싸면 안 됨
+        if (body instanceof byte[]) return body;
+
         // 이미 ApiResponse면 그대로
         if (body instanceof ApiResponse<?>) return body;
+
         return ApiResponse.ok(body);
     }
 }

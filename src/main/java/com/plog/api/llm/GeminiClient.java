@@ -3,6 +3,8 @@ package com.plog.api.llm;
 import java.util.List;
 
 import com.plog.api.domain.aiguide.Persona;
+import com.plog.api.pipeline.dto.AnsweredQa;
+import com.plog.api.pipeline.dto.BatchQuestion;
 import com.plog.api.pipeline.dto.BatchQuestionsResponse;
 import com.plog.api.pipeline.dto.ChatResponse;
 import com.plog.api.pipeline.dto.ChatTurn;
@@ -47,4 +49,7 @@ public interface GeminiClient {
      */
     BatchQuestionsResponse generateBatchQuestions(
             List<ImagePart> images, Persona persona, int questionCount);
+
+    BatchQuestion generateNextQuestion(List<ImagePart> images, Persona persona,
+            List<AnsweredQa> priorAnswers, int nextOrderIdx, int targetCount);
 }

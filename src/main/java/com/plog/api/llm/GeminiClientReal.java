@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.common.exception.TooManyRequestsException;
 import com.plog.api.domain.aiguide.Persona;
+import com.plog.api.pipeline.dto.AnsweredQa;
 import com.plog.api.pipeline.dto.BatchQuestion;
 import com.plog.api.pipeline.dto.BatchQuestionsResponse;
 import com.plog.api.pipeline.dto.ChatResponse;
@@ -531,6 +532,112 @@ public class GeminiClientReal implements GeminiClient {
         } catch (Exception e) {
             log.error("Gemini batch questions 파싱 실패. raw={}", resp);
             throw new BadRequestException("Gemini batch questions 응답 파싱 실패: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public BatchQuestion generateNextQuestion(List<ImagePart> images, Persona persona,
+            List<AnsweredQa> priorAnswers, int nextOrderIdx, int targetCount) {
+        if (keyManager.size() == 0) {
+            throw new BadRequestException("Gemini api-keys 미설정");
+        }
+
+        Persona p = persona == null ? Persona.DEFAULT : persona;
+        int answered = priorAnswers == null ? 0 : priorAnswers.size();
+        StringBuilder prompt = new StringBuilder();
+        prompt.append("당신은 사용자의 일기 작성을 돕는 친근한 한국인 친구입니다.\n");
+        prompt.append("첨부된 ").append(images == null ? 0 : images.size())
+              .append("장의 사진(아래 캡션에 시간/위치/장면 포함)과 아래 [이전 질문과 답변]을 함께 보고,\n");
+        prompt.append("사용자에게 이어서 물어볼 ").append(nextOrderIdx).append("번째 질문 1개만 한국어로 만들어주세요.\n");
+        prompt.append("총 목표 질문 수는 약 ").append(targetCount).append("개이며, 지금은 ").append(nextOrderIdx)
+              .append("번째 질문입니다.\n");
+        prompt.append("각 질문에는 사용자가 빠르게 고를 수 있는 자연스러운 답변 후보 3개도 함께 제안해주세요.\n\n");
+
+        prompt.append("[가장 중요 — 맥락 반영]\n");
+        prompt.append("- 바로 직전 답변의 내용(구체적 사실·감정·인물·장소)을 반드시 이어받아 한 걸음 더 파고드는 질문을 하세요.\n");
+        prompt.append("- 이미 답한 내용을 다시 묻지 말고, 답변에서 새로 드러난 단서를 깊이 탐구하세요.\n");
+        prompt.append("- 이전 답변이 없으면(첫 질문) 누구와 함께였는지/어떻게 오게 됐는지 같은 도입 질문으로 시작하세요.\n\n");
+
+        prompt.append("[단계 가이드]\n");
+        if (nextOrderIdx <= 2) {
+            prompt.append("- 도입 단계: 동행·방문 동기 등 큰 맥락을 잡는 질문.\n");
+        } else if (nextOrderIdx >= targetCount) {
+            prompt.append("- 마무리 단계: 가장 인상 깊었던 한 장면이 어떤 의미로 남았는지, 여운·미래를 묻는 질문.\n");
+        } else if (nextOrderIdx >= targetCount - 1) {
+            prompt.append("- 심화 핵심 단계: 앞 답변에서 가장 인상 깊다고 한 한 장면을 더 깊이 파고드는 질문.\n");
+        } else {
+            prompt.append("- deep dive 단계: 특정 사진 한 장의 장면·디테일에 집중해 그 순간을 떠올리게 하는 질문.\n");
+        }
+        prompt.append('\n');
+
+        prompt.append("[질문 원칙 — 매우 중요]\n");
+        prompt.append("1. 모호 지시어 절대 금지: \"그날\", \"그곳\", \"그 시간\", \"그 자리\", \"그 순간\", \"그때\".\n");
+        prompt.append("   - 시간 정보가 있으면 \"아침에\", \"점심 무렵\", \"저녁에\"처럼 명시적으로.\n");
+        prompt.append("   - 위치 정보가 있으면 지명을 그대로 사용. 알 수 없으면 \"사진 속 자리에서\" 정도로 회피.\n");
+        prompt.append("2. 단순 사실 나열형·빈약 질문 금지. 사진 디테일을 한두 개 인용해 단서를 주세요.\n");
+        prompt.append("3. 시간 표현은 친숙하게(\"오후 2시 35분\" 같은 분 단위 금지). \"아침\", \"점심 무렵\", \"오후\", \"저녁\"만 사용.\n");
+        prompt.append("4. 한 질문에서 전체 동선(아침-점심-저녁 + 모든 지명) 반복 인용 금지. 한 사진의 시간/장소만 언급.\n");
+        prompt.append("5. 질문 유형은 EMOTION(감정) / SITUATION(상황) / MEANING(의미) 중 하나로 분류.\n");
+        prompt.append("6. 페르소나 톤: ").append(p.getSystemPromptFragment()).append("\n\n");
+
+        prompt.append("[답변 후보 원칙]\n");
+        prompt.append("- 각 후보는 1~2문장, 일기에 그대로 옮겨도 자연스러운 한국어.\n");
+        prompt.append("- 후보 3개는 서로 다른 방향(담백한 사실 / 감정 한 줄 / 특별한 디테일).\n");
+        prompt.append("- 클리셰('따스한 햇살', '평온한 한때', '소중한 시간')와 모호 표현 금지.\n\n");
+
+        prompt.append("[이전 질문과 답변]\n");
+        if (answered == 0) {
+            prompt.append("(아직 없음 — 첫 질문)\n");
+        } else {
+            for (AnsweredQa qa : priorAnswers) {
+                prompt.append("- Q: ").append(qa.question() == null ? "" : qa.question())
+                      .append("\n  A: ").append(qa.answer() == null ? "" : qa.answer().trim()).append('\n');
+            }
+        }
+        prompt.append('\n');
+
+        prompt.append("[사진 정보]\n").append(buildImageCaptions(images)).append('\n');
+
+        prompt.append("[출력 형식]\n");
+        prompt.append("반드시 JSON만, 다른 텍스트 없이:\n");
+        prompt.append("{\"text\": \"...\", \"type\": \"SITUATION\", \"suggested_answers\": [\"...\", \"...\", \"...\"]}\n");
+
+        List<Map<String, Object>> parts = new ArrayList<>();
+        parts.add(Map.of("text", prompt.toString()));
+        if (images != null) {
+            for (ImagePart ip : images) {
+                parts.add(Map.of("inline_data", Map.of(
+                        "mime_type", ip.mimeType(),
+                        "data", Base64.getEncoder().encodeToString(ip.bytes())
+                )));
+            }
+        }
+
+        Map<String, Object> body = Map.of(
+            "contents", List.of(Map.of("role", "user", "parts", parts)),
+            "generationConfig", Map.of(
+                "temperature", 0.7,
+                "topP", 0.9,
+                "maxOutputTokens", 1024,
+                "responseMimeType", "application/json",
+                "thinkingConfig", Map.of("thinkingBudget", 0)
+            )
+        );
+
+        long t0 = System.currentTimeMillis();
+        String resp = postWithRotation(body, "generateNextQuestion");
+        log.info("Gemini next question latency={}ms orderIdx={} prior={} images={}",
+                System.currentTimeMillis() - t0, nextOrderIdx, answered,
+                images == null ? 0 : images.size());
+
+        try {
+            JsonNode root = objectMapper.readTree(resp);
+            String text = root.path("candidates").path(0).path("content").path("parts").path(0).path("text").asText("");
+            String json = extractJson(text);
+            return objectMapper.readValue(json, BatchQuestion.class);
+        } catch (Exception e) {
+            log.error("Gemini next question 파싱 실패. raw={}", resp);
+            throw new BadRequestException("Gemini next question 응답 파싱 실패: " + e.getMessage());
         }
     }
 
