@@ -32,7 +32,7 @@ public class MatchRecommendService {
 
         Map<String, Double> myScores = preferenceRepository.findByUserId(userId)
                 .stream()
-                .collect(Collectors.toMap(UserPreferenceScore::getCategory, UserPreferenceScore::getScore));
+                .collect(Collectors.toMap(UserPreferenceScore::getCategory, s -> (double) s.getScore()));
 
         List<AppUser> otherUsers = appUserRepository.findAll()
                 .stream()
@@ -45,7 +45,7 @@ public class MatchRecommendService {
             List<UserPreferenceScore> otherPreferences = preferenceRepository.findByUserId(user.getId());
 
             Map<String, Double> otherScores = otherPreferences.stream()
-                    .collect(Collectors.toMap(UserPreferenceScore::getCategory, UserPreferenceScore::getScore));
+                    .collect(Collectors.toMap(UserPreferenceScore::getCategory, s -> (double) s.getScore()));
 
             double similarity = cosineSimilarity(myScores, otherScores);
 
