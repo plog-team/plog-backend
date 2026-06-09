@@ -236,6 +236,35 @@ The response always uses the batch shape, including for a single `file`. The And
   }
 }
 ```
+## 3-1. Photo Location Sync API
+
+### List photo locations for revisit notification sync
+
+```http
+GET /api/photos/locations
+X-User-Id: 1
+```
+
+Returns all saved photo GPS locations for the user.
+The Android app syncs this data into Room DB and uses it for revisit notifications.
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 2,
+      "photoId": 2,
+      "latitude": 37.5665,
+      "longitude": 126.978,
+      "locationName": "서울시청",
+      "takenAt": "2026-06-07T18:34:45",
+      "weather": "맑음",
+      "temperature": 22.0
+    }
+  ]
+}
+```
 
 Use the returned `photoId` values in diary and AI guide requests.
 ## 4. AI Guide API

@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,7 @@ import com.plog.api.domain.photo.dto.PhotoAutoInputContext;
 import com.plog.api.pipeline.ExifExtractNode;
 import com.plog.api.pipeline.dto.ContextResult;
 import com.plog.api.pipeline.dto.ExifResult;
+import com.plog.api.domain.photo.dto.PhotoLocationResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -167,4 +169,14 @@ public class PhotoService {
         }
         return "jpg";
     }
+
+    @Transactional(readOnly = true)
+    public List<PhotoLocationResponse> getPhotoLocations(long userId) {
+
+        return photoLocationRepository.findAllByUserId(userId)
+                .stream()
+                .map(PhotoLocationResponse::from)
+                .toList();
+    }
+
 }

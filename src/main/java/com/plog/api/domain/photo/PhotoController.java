@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.plog.api.common.ApiResponse;
 import com.plog.api.common.UserContext;
 import com.plog.api.common.exception.BadRequestException;
 import com.plog.api.common.exception.NotFoundException;
@@ -27,6 +28,7 @@ import com.plog.api.domain.photo.dto.PhotoUploadResponse;
 
 import lombok.RequiredArgsConstructor;
 import com.plog.api.domain.photo.dto.PhotoAutoInputContext;
+import com.plog.api.domain.photo.dto.PhotoLocationResponse;
 @RestController
 @RequestMapping("/api/photos")
 @RequiredArgsConstructor
@@ -88,6 +90,12 @@ public class PhotoController {
                 .weather(location.getWeather())
                 .temperature(location.getTemperature())
                 .build();
+    }
+    @GetMapping("/locations")
+    public ResponseEntity<List<PhotoLocationResponse>> getPhotoLocations(
+            @RequestHeader("X-User-Id") long userId
+    ) {
+        return ResponseEntity.ok(photoService.getPhotoLocations(userId));
     }
     @DeleteMapping("/{photoId}")
     public ResponseEntity<Void> deletePhoto(
