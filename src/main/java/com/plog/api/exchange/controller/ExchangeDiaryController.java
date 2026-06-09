@@ -27,7 +27,7 @@ public class ExchangeDiaryController {
     public ResponseEntity<ExchangeDiaryResponseDto> updateDiary(
             @PathVariable Long diaryId,
             @RequestBody java.util.Map<String, String> body) {
-        return ResponseEntity.ok(diaryService.updateDiary(diaryId, body.get("title"), body.get("content")));
+        return ResponseEntity.ok(diaryService.updateDiary(diaryId, body.get("content")));
     }
 
     // 세션별 일기 목록 조회
