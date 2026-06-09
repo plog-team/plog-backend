@@ -28,6 +28,26 @@ spring:
         jdbc:
           time_zone: Asia/Seoul
     open-in-view: false
+  
+  #메일 인증
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: plog12341234@gmail.com
+    password: rdne zskd ejvx roxo
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  thymeleaf:
+    prefix: /WEB-INF/views/pages/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
 
 server:
   port: 8080
@@ -64,7 +84,21 @@ plog:
     model: gpt-4o-mini
     endpoint: https://api.openai.com/v1
 
+aichat:
+  gemini:
+    api-key: ${AICHAT_GEMINI_API_KEY}
+    model: gemini-2.5-flash
+    endpoint: https://generativelanguage.googleapis.com/v1beta
+    use-mock: false
+
 logging:
   level:
     com.plog.api: DEBUG
     org.hibernate.SQL: INFO
+
+api:
+  service:
+    key: ${API_SERVICE_KEY:}
+
+jwt:
+  secret: your-secret-key-must-be-at-least-32-characters-long
