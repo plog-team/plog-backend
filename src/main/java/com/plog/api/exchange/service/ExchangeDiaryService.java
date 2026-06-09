@@ -24,7 +24,6 @@ public class ExchangeDiaryService {
     private final SessionParticipantRepository sessionParticipantRepository;
     private final NotificationService notificationService;
 
-    // 일기 작성
     @Transactional
     public ExchangeDiaryResponseDto createDiary(ExchangeDiaryRequestDto request) {
         ExchangeSession session = sessionRepository.findById(request.getSessionId())
@@ -33,6 +32,7 @@ public class ExchangeDiaryService {
         ExchangeDiary diary = new ExchangeDiary(
                 session,
                 request.getUserId(),
+                request.getTitle(),
                 request.getContent(),
                 request.getDayNumber(),
                 LocalDateTime.now()
@@ -50,16 +50,14 @@ public class ExchangeDiaryService {
         return new ExchangeDiaryResponseDto(saved);
     }
 
-    // 일기 수정
     @Transactional
-    public ExchangeDiaryResponseDto updateDiary(Long diaryId, String content) {
+    public ExchangeDiaryResponseDto updateDiary(Long diaryId, String title, String content) {
         ExchangeDiary diary = diaryRepository.findById(diaryId)
                 .orElseThrow(() -> new RuntimeException("일기를 찾을 수 없습니다."));
-        diary.updateContent(content);
+        diary.updateContent(title, content);
         return new ExchangeDiaryResponseDto(diary);
     }
 
-    // 세션의 일기 목록 조회
     @Transactional(readOnly = true)
     public List<ExchangeDiaryResponseDto> getDiariesBySession(Long sessionId) {
         ExchangeSession session = sessionRepository.findById(sessionId)
