@@ -29,11 +29,8 @@ public class User extends BaseTimeEntity {
     @Column(length = 100)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 255)
     private String password;
-
-    @Column(nullable = false)
-    private boolean emailVerified = false;
 
     @Builder
     private User(String name, String email, String password) {
