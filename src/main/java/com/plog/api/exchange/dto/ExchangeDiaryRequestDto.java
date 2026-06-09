@@ -9,7 +9,6 @@ public class ExchangeDiaryRequestDto {
 
     private Long sessionId;
     private Long userId;
-    private String title;
     private String content;
     private int dayNumber;
 }

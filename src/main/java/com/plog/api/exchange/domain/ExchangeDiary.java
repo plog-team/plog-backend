@@ -22,25 +22,21 @@ public class ExchangeDiary {
     @Column(name = "user_id")
     private Long userId;
 
-    private String title;
-
     private String content;
 
     private LocalDateTime createdAt;
 
     private int dayNumber;
 
-    public ExchangeDiary(ExchangeSession exchangeSession, Long userId, String title, String content, int dayNumber, LocalDateTime createdAt) {
+    public ExchangeDiary(ExchangeSession exchangeSession, Long userId, String content, int dayNumber, LocalDateTime createdAt) {
         this.exchangeSession = exchangeSession;
         this.userId = userId;
-        this.title = title;
         this.content = content;
         this.dayNumber = dayNumber;
         this.createdAt = createdAt;
     }
 
-    public void updateContent(String title, String content) {
-        this.title = title;
+    public void updateContent(String content) {
         this.content = content;
     }
 }
