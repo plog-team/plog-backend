@@ -103,6 +103,14 @@ public class DiaryService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<DiaryResponse> listPublic(long userId, int limit) {
+        Pageable pageable = PageRequest.of(0, Math.min(Math.max(limit, 1), 100));
+        return diaryRepository.findAllByUserIdAndSecretFalseOrderByDiaryDateDesc(userId, pageable).stream()
+                .map(DiaryResponse::from)
+                .toList();
+    }
+
     /** 제목/본문/장소/날짜/감정 기준 일기 검색 */
     @Transactional(readOnly = true)
     public List<DiarySearchResponse> search(

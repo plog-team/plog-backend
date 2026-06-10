@@ -45,6 +45,13 @@ public class DiaryController {
         return diaryService.list(UserContext.get(), limit);
     }
 
+    @GetMapping("/public")
+    public List<DiaryResponse> listPublic(
+            @RequestParam long userId,
+            @RequestParam(defaultValue = "100") int limit) {
+        return diaryService.listPublic(userId, limit);
+    }
+
     /** 제목/내용/장소/날짜/감정 기준 일기 검색 */
     @GetMapping("/search")
     public List<DiarySearchResponse> search(
