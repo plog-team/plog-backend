@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -92,16 +91,12 @@ public class PhotoController {
                 .build();
     }
     @GetMapping("/locations")
-    public ResponseEntity<List<PhotoLocationResponse>> getPhotoLocations(
-            @RequestHeader("X-User-Id") long userId
-    ) {
-        return ResponseEntity.ok(photoService.getPhotoLocations(userId));
+    public ResponseEntity<List<PhotoLocationResponse>> getPhotoLocations() {
+        return ResponseEntity.ok(photoService.getPhotoLocations(UserContext.get()));
     }
     @DeleteMapping("/{photoId}")
-    public ResponseEntity<Void> deletePhoto(
-            @PathVariable Long photoId,
-            @RequestHeader("X-User-Id") Long userId){
-            photoService.deletePhoto(photoId, userId);
-            return ResponseEntity.noContent().build();
+    public ResponseEntity<Void> deletePhoto(@PathVariable Long photoId) {
+        photoService.deletePhoto(photoId, UserContext.get());
+        return ResponseEntity.noContent().build();
     }
 }

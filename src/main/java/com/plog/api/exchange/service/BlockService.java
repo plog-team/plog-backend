@@ -1,7 +1,6 @@
 package com.plog.api.exchange.service;
 
 import com.plog.api.exchange.domain.Block;
-import com.plog.api.exchange.dto.BlockRequestDto;
 import com.plog.api.exchange.dto.BlockResponseDto;
 import com.plog.api.exchange.repository.BlockRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +18,8 @@ public class BlockService {
 
     // 차단
     @Transactional
-    public BlockResponseDto createBlock(BlockRequestDto request) {
-        Block block = new Block(request.getBlockerId(), request.getBlockedId());
+    public BlockResponseDto createBlock(Long blockerId, Long blockedId) {
+        Block block = new Block(blockerId, blockedId);
         blockRepository.save(block);
         return new BlockResponseDto(block);
     }

@@ -8,11 +8,11 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.plog.api.common.UserContext;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -25,10 +25,9 @@ public class AiChatController {
     // 세션 시작
     @PostMapping("/session")
     public ResponseEntity<?> startSession(
-            @RequestParam("userId") Long userId,
             @RequestParam(value = "type", defaultValue = "FREE_CHAT") String type,
             @RequestParam(value = "date", required = false) String date) {
-        Map<String, Object> result = aiChatService.startSession(userId, type, date);
+        Map<String, Object> result = aiChatService.startSession(UserContext.get(), type, date);
         return ResponseEntity.ok(Map.of("success", true, "data", result));
     }
 
@@ -36,9 +35,8 @@ public class AiChatController {
     @PostMapping("/session/{sessionId}/message")
     public ResponseEntity<?> sendMessage(
             @PathVariable("sessionId") Long sessionId,
-            @RequestHeader("X-User-Id") Long userId,
             @RequestParam("message") String message) {
-        Map<String, Object> result = aiChatService.sendMessage(sessionId, userId, message);
+        Map<String, Object> result = aiChatService.sendMessage(sessionId, UserContext.get(), message);
         return ResponseEntity.ok(Map.of("success", true, "data", result));
     }
 
@@ -57,8 +55,8 @@ public class AiChatController {
 
     // 세션 목록 조회 (대화 히스토리 목록)
     @GetMapping("/sessions")
-    public ResponseEntity<?> getSessions(@RequestParam("userId") Long userId) {
-        List<Map<String, Object>> result = aiChatService.getSessions(userId);
+    public ResponseEntity<?> getSessions() {
+        List<Map<String, Object>> result = aiChatService.getSessions(UserContext.get());
         return ResponseEntity.ok(Map.of("success", true, "data", result));
     }
 

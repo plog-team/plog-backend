@@ -6,31 +6,31 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import com.plog.api.common.UserContext;
 import com.plog.api.common.exception.BadRequestException;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class UserIdInterceptor implements HandlerInterceptor {
 
-    public static final String HEADER = "X-User-Id";
+    private final JwtProvider jwtProvider;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-        String raw = request.getHeader(HEADER);
-        if (raw == null || raw.isBlank()) {
-            throw new BadRequestException("X-User-Id 헤더가 필요합니다");
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.startsWith("Bearer ")) {
+            throw new BadRequestException("Authorization 헤더가 필요합니다 (Bearer 토큰)");
         }
-        long userId;
+        String token = header.substring(7);
         try {
-            userId = Long.parseLong(raw.trim());
-        } catch (NumberFormatException e) {
-            throw new BadRequestException("X-User-Id 헤더는 정수여야 합니다 (got: " + raw + ")");
+            long userId = jwtProvider.extractUserId(token);
+            UserContext.set(userId);
+            return true;
+        } catch (JwtException e) {
+            throw new BadRequestException("유효하지 않은 토큰입니다: " + e.getMessage());
         }
-        if (userId <= 0) {
-            throw new BadRequestException("X-User-Id 헤더는 1 이상이어야 합니다");
-        }
-        UserContext.set(userId);
-        return true;
     }
 
     @Override

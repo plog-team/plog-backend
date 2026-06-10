@@ -1,5 +1,6 @@
 package com.plog.api.exchange.controller;
 
+import com.plog.api.common.UserContext;
 import com.plog.api.exchange.dto.ExchangeSessionResponseDto;
 import com.plog.api.exchange.service.ExchangeSessionService;
 import lombok.RequiredArgsConstructor;
@@ -34,10 +35,8 @@ public class ExchangeSessionController {
 
     // 세션 연장 동의
     @PostMapping("/{sessionId}/extend")
-    public ResponseEntity<ExchangeSessionResponseDto> agreeExtend(
-            @PathVariable Long sessionId,
-            @RequestParam Long userId) {
-        return ResponseEntity.ok(sessionService.agreeExtend(sessionId, userId));
+    public ResponseEntity<ExchangeSessionResponseDto> agreeExtend(@PathVariable Long sessionId) {
+        return ResponseEntity.ok(sessionService.agreeExtend(sessionId, UserContext.get()));
     }
 
     // 세션 종료

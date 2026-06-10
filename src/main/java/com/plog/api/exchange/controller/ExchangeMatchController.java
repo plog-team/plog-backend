@@ -1,5 +1,6 @@
 package com.plog.api.exchange.controller;
 
+import com.plog.api.common.UserContext;
 import com.plog.api.exchange.dto.ExchangeMatchRequestDto;
 import com.plog.api.exchange.dto.ExchangeMatchResponseDto;
 import com.plog.api.exchange.dto.ExchangeRoomResponseDto;
@@ -18,7 +19,7 @@ public class ExchangeMatchController {
 
     @PostMapping
     public ResponseEntity<ExchangeMatchResponseDto> createMatch(@RequestBody ExchangeMatchRequestDto request) {
-        return ResponseEntity.ok(matchService.createMatch(request.getUserId(), request.getTargetUserId()));
+        return ResponseEntity.ok(matchService.createMatch(UserContext.get(), request.getTargetUserId()));
     }
 
     @PostMapping("/{matchId}/accept")
@@ -27,16 +28,13 @@ public class ExchangeMatchController {
     }
 
     @GetMapping("/{matchId}")
-    public ResponseEntity<ExchangeMatchResponseDto> getMatch(
-            @PathVariable Long matchId,
-            @RequestParam Long userId) {
-        return ResponseEntity.ok(matchService.getMatch(matchId, userId));
+    public ResponseEntity<ExchangeMatchResponseDto> getMatch(@PathVariable Long matchId) {
+        return ResponseEntity.ok(matchService.getMatch(matchId, UserContext.get()));
     }
 
     @GetMapping("/pending")
-    public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches(
-            @RequestParam Long userId) {
-        return ResponseEntity.ok(matchService.getPendingMatches(userId));
+    public ResponseEntity<List<ExchangeMatchResponseDto>> getPendingMatches() {
+        return ResponseEntity.ok(matchService.getPendingMatches(UserContext.get()));
     }
 
     @PostMapping("/{matchId}/reject")
@@ -46,8 +44,8 @@ public class ExchangeMatchController {
     }
 
     @GetMapping("/my-active")
-    public ResponseEntity<ExchangeMatchResponseDto> getMyActiveMatch(@RequestParam Long userId) {
-        ExchangeMatchResponseDto match = matchService.getMyPendingMatch(userId);
+    public ResponseEntity<ExchangeMatchResponseDto> getMyActiveMatch() {
+        ExchangeMatchResponseDto match = matchService.getMyPendingMatch(UserContext.get());
         if (match == null) {
             return ResponseEntity.noContent().build();
         }

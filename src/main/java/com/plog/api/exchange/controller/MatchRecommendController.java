@@ -1,5 +1,6 @@
 package com.plog.api.exchange.controller;
 
+import com.plog.api.common.UserContext;
 import com.plog.api.exchange.dto.MatchRecommendResponseDto;
 import com.plog.api.exchange.service.MatchRecommendService;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,7 @@ public class MatchRecommendController {
     private final MatchRecommendService matchRecommendService;
 
     @GetMapping
-    public ResponseEntity<List<MatchRecommendResponseDto>> recommendMatches(@RequestParam Long userId) {
-        return ResponseEntity.ok(matchRecommendService.recommendMatches(userId));
+    public ResponseEntity<List<MatchRecommendResponseDto>> recommendMatches() {
+        return ResponseEntity.ok(matchRecommendService.recommendMatches(UserContext.get()));
     }
 }

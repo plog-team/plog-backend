@@ -1,5 +1,6 @@
 package com.plog.api.exchange.controller;
 
+import com.plog.api.common.UserContext;
 import com.plog.api.exchange.dto.NotificationResponseDto;
 import com.plog.api.exchange.service.NotificationService;
 import lombok.RequiredArgsConstructor;
@@ -16,14 +17,14 @@ public class NotificationController {
 
     // 알림 목록 조회
     @GetMapping
-    public ResponseEntity<List<NotificationResponseDto>> getNotifications(@RequestParam Long userId) {
-        return ResponseEntity.ok(notificationService.getNotifications(userId));
+    public ResponseEntity<List<NotificationResponseDto>> getNotifications() {
+        return ResponseEntity.ok(notificationService.getNotifications(UserContext.get()));
     }
 
     // 읽지 않은 알림 조회
     @GetMapping("/unread")
-    public ResponseEntity<List<NotificationResponseDto>> getUnreadNotifications(@RequestParam Long userId) {
-        return ResponseEntity.ok(notificationService.getUnreadNotifications(userId));
+    public ResponseEntity<List<NotificationResponseDto>> getUnreadNotifications() {
+        return ResponseEntity.ok(notificationService.getUnreadNotifications(UserContext.get()));
     }
 
     // 알림 읽음 처리

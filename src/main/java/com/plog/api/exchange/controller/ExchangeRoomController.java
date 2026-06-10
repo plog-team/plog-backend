@@ -1,5 +1,6 @@
 package com.plog.api.exchange.controller;
 
+import com.plog.api.common.UserContext;
 import com.plog.api.exchange.dto.ExchangeRoomResponseDto;
 import com.plog.api.exchange.service.ExchangeRoomService;
 import lombok.RequiredArgsConstructor;
@@ -35,8 +36,8 @@ public class ExchangeRoomController {
 
     // 내 활성 교환방 조회
     @GetMapping("/active")
-    public ResponseEntity<ExchangeRoomResponseDto> getActiveRoom(@RequestParam Long userId) {
-        ExchangeRoomResponseDto room = roomService.getActiveRoom(userId);
+    public ResponseEntity<ExchangeRoomResponseDto> getActiveRoom() {
+        ExchangeRoomResponseDto room = roomService.getActiveRoom(UserContext.get());
         if (room == null) {
             return ResponseEntity.noContent().build();
         }
