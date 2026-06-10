@@ -32,6 +32,9 @@ public class User extends BaseTimeEntity {
     @Column(nullable = false, length = 255)
     private String password;
 
+    @Column(nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    private boolean emailVerified = false;
+
     @Builder
     private User(String name, String email, String password) {
         this.name = name;

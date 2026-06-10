@@ -1,5 +1,6 @@
 package com.plog.api.exchange.repository;
 
+import com.plog.api.exchange.domain.ExchangeMatch;
 import com.plog.api.exchange.domain.MatchParticipant;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,4 +16,7 @@ public interface MatchParticipantRepository extends JpaRepository<MatchParticipa
 
     @Query("SELECT mp FROM MatchParticipant mp JOIN mp.exchangeMatch em WHERE mp.userId = :userId AND em.status IN ('PENDING', 'MATCHED') ORDER BY mp.id DESC")
     List<MatchParticipant> findActiveMatchesByUserId(@Param("userId") Long userId);
+
+    @Query("SELECT mp.exchangeMatch FROM MatchParticipant mp WHERE mp.userId = :userId AND mp.exchangeMatch.status = 'PENDING' ORDER BY mp.exchangeMatch.id DESC")
+    List<ExchangeMatch> findPendingMatchesByUserId(@Param("userId") Long userId);
 }

@@ -60,11 +60,11 @@ public class ExchangeMatchService {
         ExchangeMatch match = matchRepository.findById(matchId)
                 .orElseThrow(() -> new RuntimeException("매칭을 찾을 수 없습니다."));
 
-        List<ExchangeRoom> existingRooms = roomRepository.findAll()
-                .stream()
-                .filter(r -> r.getExchangeMatch().getId().equals(matchId))
-                .collect(Collectors.toList());
+        if (!"PENDING".equals(match.getStatus())) {
+            throw new RuntimeException("수락할 수 없는 매칭 상태입니다: " + match.getStatus());
+        }
 
+        List<ExchangeRoom> existingRooms = roomRepository.findByExchangeMatchId(matchId);
         if (!existingRooms.isEmpty()) {
             return new ExchangeRoomResponseDto(existingRooms.get(0));
         }
@@ -115,10 +115,10 @@ public class ExchangeMatchService {
         return new ExchangeMatchResponseDto(match, nickname, topCategories, targetUserId);
     }
 
-    // 대기 중인 매칭 목록 조회
+    // 대기 중인 매칭 목록 조회 (본인이 참여한 것만)
     @Transactional(readOnly = true)
     public List<ExchangeMatchResponseDto> getPendingMatches(Long userId) {
-        return matchRepository.findByStatus("PENDING")
+        return participantRepository.findPendingMatchesByUserId(userId)
                 .stream()
                 .map(match -> {
                     String nickname = participantRepository.findAllByExchangeMatchId(match.getId())

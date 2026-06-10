@@ -21,7 +21,7 @@ public class UserIdInterceptor implements HandlerInterceptor {
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            throw new BadRequestException("Authorization 헤더가 필요합니다 (Bearer 토큰)");
+            throw new BadRequestException("Authorization 헤더가 필요합니다");
         }
         String token = header.substring(7);
         try {
@@ -29,7 +29,7 @@ public class UserIdInterceptor implements HandlerInterceptor {
             UserContext.set(userId);
             return true;
         } catch (JwtException e) {
-            throw new BadRequestException("유효하지 않은 토큰입니다: " + e.getMessage());
+            throw new BadRequestException("유효하지 않은 토큰입니다");
         }
     }
 

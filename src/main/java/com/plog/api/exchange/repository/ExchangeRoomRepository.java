@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface ExchangeRoomRepository extends JpaRepository<ExchangeRoom, Long> {
 
+    List<ExchangeRoom> findByExchangeMatchId(Long matchId);
+
     @Query("SELECT er FROM ExchangeRoom er WHERE er.exchangeMatch.id IN " +
             "(SELECT mp.exchangeMatch.id FROM MatchParticipant mp WHERE mp.userId = :userId) " +
             "AND er.status = 'ACTIVE' ORDER BY er.id DESC")
