@@ -28,6 +28,7 @@ public class AiChatService {
 
     @Transactional
     public Map<String, Object> startSession(Long userId, String type, String date) {
+        
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -86,10 +87,15 @@ public class AiChatService {
 
         // 3. 세션 타입에 따라 시스템 프롬프트 분기
         String systemPrompt;
-        if ("DIARY_ASSIST".equals(session.getType())) {
-            String diaryContext = buildDiaryContext(userId);
+       if ("DIARY_ASSIST".equals(session.getType())) {
+        if (session.getDiaryDate() != null) {
+            String diaryContext =
+                    buildDiaryContextByDate(userId, session.getDiaryDate().toString());
             systemPrompt = buildDiarySystemPrompt(diaryContext);
         } else {
+            systemPrompt = buildDiarySystemPrompt(buildDiaryContext(userId));
+        }
+    } else {
             systemPrompt = buildFreeChatSystemPrompt();
         }
 
@@ -132,31 +138,31 @@ public class AiChatService {
         try {
             List<Map<String, Object>> diaries = jdbcTemplate.queryForList(
                 """
-                SELECT d.content, d.created_at,
-                       e.sentiment, e.primary_emotion, e.intensity
+                SELECT d.body, d.diary_date
                 FROM diary d
-                LEFT JOIN emotion_analysis e ON d.id = e.diary_id
                 WHERE d.user_id = ?
-                  AND d.created_at >= NOW() - INTERVAL 7 DAY
-                ORDER BY d.created_at DESC
-                """, userId
+                AND d.diary_date >= CURDATE() - INTERVAL 7 DAY
+                ORDER BY d.diary_date DESC
+                """,
+                userId
             );
 
-            if (diaries.isEmpty()) return "최근 7일간 작성된 일기가 없습니다.";
+            if (diaries.isEmpty()) {
+                return "최근 7일간 작성된 일기가 없습니다.";
+            }
 
             StringBuilder sb = new StringBuilder();
+
             for (Map<String, Object> diary : diaries) {
-                sb.append("날짜: ").append(diary.get("created_at")).append("\n");
-                sb.append("내용: ").append(diary.get("content")).append("\n");
-                if (diary.get("primary_emotion") != null) {
-                    sb.append("감정: ").append(diary.get("primary_emotion"))
-                      .append(" (강도: ").append(diary.get("intensity")).append(")\n");
-                }
+                sb.append("날짜: ").append(diary.get("diary_date")).append("\n");
+                sb.append("내용: ").append(diary.get("body")).append("\n");
                 sb.append("---\n");
             }
+
             return sb.toString();
+
         } catch (Exception e) {
-            log.warn("일기 데이터 조회 실패: {}", e.getMessage());
+            log.warn("일기 데이터 조회 실패", e);
             return "일기 데이터를 불러올 수 없습니다.";
         }
     }
@@ -165,31 +171,30 @@ public class AiChatService {
         try {
             List<Map<String, Object>> diaries = jdbcTemplate.queryForList(
                 """
-                SELECT d.content, d.created_at,
-                    e.sentiment, e.primary_emotion, e.intensity
+                SELECT d.body, d.diary_date
                 FROM diary d
-                LEFT JOIN emotion_analysis e ON d.id = e.diary_id
                 WHERE d.user_id = ?
-                AND DATE(d.created_at) = ?
-                ORDER BY d.created_at DESC
-                """, userId, date
+                AND d.diary_date = ?
+                """,
+                userId, date
             );
 
-            if (diaries.isEmpty()) return date + "에 작성된 일기가 없습니다.";
+            if (diaries.isEmpty()) {
+                return date + "에 작성된 일기가 없습니다.";
+            }
 
             StringBuilder sb = new StringBuilder();
+
             for (Map<String, Object> diary : diaries) {
-                sb.append("날짜: ").append(diary.get("created_at")).append("\n");
-                sb.append("내용: ").append(diary.get("content")).append("\n");
-                if (diary.get("primary_emotion") != null) {
-                    sb.append("감정: ").append(diary.get("primary_emotion"))
-                    .append(" (강도: ").append(diary.get("intensity")).append(")\n");
-                }
+                sb.append("날짜: ").append(diary.get("diary_date")).append("\n");
+                sb.append("내용: ").append(diary.get("body")).append("\n");
                 sb.append("---\n");
             }
+
             return sb.toString();
+
         } catch (Exception e) {
-            log.warn("일기 데이터 조회 실패: {}", e.getMessage());
+            log.warn("일기 데이터 조회 실패", e);
             return "일기 데이터를 불러올 수 없습니다.";
         }
     }
